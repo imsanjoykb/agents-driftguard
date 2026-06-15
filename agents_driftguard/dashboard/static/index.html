@@ -1,94 +1,179 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>agentundo Dashboard</title>
-    <!-- Tailwind for rapid styling -->
+    <title>DriftGuard Live Dashboard</title>
+    <!-- Tailwind for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Mermaid for graph rendering -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- SVG Pan Zoom for the graph -->
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    
     <style>
-        body { background-color: #0f172a; color: #f8fafc; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        .state-card { border-left: 4px solid #3b82f6; }
-        .state-card.diverged { border-left-color: #ef4444; }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        body {
+            background-color: #080b11;
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar styling for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080b11;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(13, 20, 35, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glass-header {
+            background: rgba(8, 14, 27, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        /* State cards subtle gradient left borders */
+        .state-card {
+            border-left: 4px solid #3b82f6;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .state-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.7);
+            border-color: #60a5fa;
+        }
+        .state-card.diverged {
+            border-left-color: #ef4444;
+        }
+        .state-card.diverged:hover {
+            border-color: #f87171;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col font-sans">
+<body class="h-screen flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white">
     
-    <header class="glass p-4 flex justify-between items-center z-10">
+    <!-- Header -->
+    <header class="glass-header px-6 py-4 flex justify-between items-center z-20 shadow-md">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-bold text-lg">↺</div>
-            <h1 class="text-xl font-semibold tracking-tight">agentundo<span class="text-slate-400 font-normal text-sm ml-2">Live Dashboard</span></h1>
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-500/25">🛡️</div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">DriftGuard</h1>
+                <p class="text-[10px] text-indigo-400 font-semibold tracking-wider uppercase -mt-0.5">Autonomous Agent Monitor</p>
+            </div>
         </div>
+        
         <div class="flex items-center gap-4">
-            <select id="run-selector" class="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+            <select id="run-selector" class="bg-slate-900 border border-slate-800 text-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium cursor-pointer shadow-inner">
                 <option value="">Waiting for runs...</option>
             </select>
-            <div id="status-indicator" class="flex items-center gap-2 text-sm">
-                <span class="relative flex h-3 w-3">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+            <div id="status-indicator" class="flex items-center gap-2 bg-slate-900/60 px-3 py-1.5 border border-slate-800 rounded-full text-xs font-semibold">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span class="text-slate-300">Listening</span>
+                <span class="text-slate-400">Telemetry Active</span>
             </div>
         </div>
     </header>
 
+    <!-- Main Container -->
     <main class="flex-1 flex overflow-hidden">
-        <!-- Left Panel: States & Rollbacks -->
-        <div class="w-1/3 flex flex-col border-r border-slate-800 glass z-0">
-            <div class="p-4 border-b border-slate-800 flex flex-col gap-3">
+        
+        <!-- Left Panel: Execution Timeline -->
+        <div class="w-[35%] flex flex-col border-r border-slate-900 glass-panel shadow-2xl z-10">
+            <div class="p-5 border-b border-slate-900 flex flex-col gap-4">
                 <div class="flex justify-between items-center">
-                    <h2 class="font-medium text-slate-200 text-lg">Execution Timeline</h2>
-                    <div class="flex gap-2">
-                        <span id="stat-status" class="text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded text-slate-400 font-semibold uppercase tracking-wider">Running</span>
-                    </div>
+                    <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Execution Timeline</h2>
+                    <span id="stat-status" class="text-[10px] bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-400 font-bold tracking-wider uppercase">Idle</span>
                 </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Steps</div>
-                        <div id="stat-steps" class="text-lg text-slate-200 font-mono">0</div>
+                
+                <!-- Stats Indicators -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-slate-950/40 border border-slate-900 rounded-xl p-3 text-center transition-all hover:bg-slate-950/60">
+                        <div class="text-[10px] text-slate-500 uppercase font-semibold tracking-wider mb-1">Steps</div>
+                        <div id="stat-steps" class="text-xl text-indigo-400 font-bold font-mono">0</div>
                     </div>
-                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Rollbacks</div>
-                        <div id="stat-rollbacks" class="text-lg text-slate-200 font-mono">0</div>
+                    <div class="bg-slate-950/40 border border-slate-900 rounded-xl p-3 text-center transition-all hover:bg-slate-950/60">
+                        <div class="text-[10px] text-slate-500 uppercase font-semibold tracking-wider mb-1">Rollbacks</div>
+                        <div id="stat-rollbacks" class="text-xl text-amber-500 font-bold font-mono">0</div>
                     </div>
-                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Time</div>
-                        <div id="stat-time" class="text-lg text-slate-200 font-mono">0s</div>
-                    </div>
-                </div>
-            </div>
-            <div id="timeline" class="flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="text-center text-slate-500 text-sm mt-10">Select a run to view its timeline.</div>
-            </div>
-        </div>
-
-        <!-- Right Panel: Causal Graph & Output -->
-        <div class="w-2/3 flex flex-col relative">
-            <div class="h-2/3 p-4 overflow-hidden flex flex-col relative">
-                <h2 class="font-medium text-slate-200 mb-2 z-10">Causal Graph</h2>
-                <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 z-0"></div>
-                <div id="mermaid-container" class="flex-1 overflow-auto rounded bg-slate-900/50 border border-slate-800 flex items-center justify-center p-4 z-10">
-                    <div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center text-slate-500">
-                        Graph will appear here
+                    <div class="bg-slate-950/40 border border-slate-900 rounded-xl p-3 text-center transition-all hover:bg-slate-950/60">
+                        <div class="text-[10px] text-slate-500 uppercase font-semibold tracking-wider mb-1">Duration</div>
+                        <div id="stat-time" class="text-xl text-slate-300 font-bold font-mono">0s</div>
                     </div>
                 </div>
             </div>
             
-            <div class="h-1/3 p-4 border-t border-slate-800 glass flex flex-col">
-                <h2 class="font-medium text-slate-200 mb-2">Final Output / Goal</h2>
-                <div id="output-container" class="flex-1 overflow-y-auto bg-slate-900 rounded border border-slate-800 p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap">
-Waiting for agent to complete...
+            <!-- Timeline Stream -->
+            <div id="timeline" class="flex-1 overflow-y-auto p-5 space-y-5">
+                <div class="text-center text-slate-500 text-sm mt-12 font-medium">Select a run in the header selector to view execution telemetry.</div>
+            </div>
+        </div>
+        
+        <!-- Right Panel: Causal Graph & Output -->
+        <div class="w-[65%] flex flex-col relative bg-[#06080d]">
+            
+            <!-- Top Right: Causal Graph -->
+            <div class="h-[60%] p-6 flex flex-col relative border-b border-slate-900">
+                <div class="flex items-center justify-between mb-3 z-10">
+                    <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Causal Trajectory Graph</h2>
+                    <span class="text-[10px] text-slate-500 font-medium font-mono">Rollbacks branch into new safe paths</span>
+                </div>
+                <!-- Grid background layout -->
+                <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-20 z-0 pointer-events-none"></div>
+                
+                <div id="mermaid-container" class="flex-1 overflow-hidden rounded-2xl bg-slate-950/40 border border-slate-900 flex items-center justify-center p-4 z-10 relative">
+                    <!-- Custom sleek floating zoom controls -->
+                    <div class="absolute top-4 right-4 flex flex-col gap-1.5 z-20">
+                        <button id="zoom-in" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none" title="Zoom In">+</button>
+                        <button id="zoom-out" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none" title="Zoom Out">−</button>
+                        <button id="zoom-reset" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 transition-all shadow-md select-none text-sm" title="Reset Zoom">⟲</button>
+                    </div>
+                    
+                    <div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center text-slate-500 font-mono text-xs">
+                        Trajectory graph will render upon agent execution...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom Right: Goal & Final Output -->
+            <div class="h-[40%] p-6 glass-panel flex flex-col relative shadow-inner">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Final Output / Goal Details</h2>
+                    <span class="text-[10px] text-indigo-400 font-bold tracking-wider uppercase">Results Summary</span>
+                </div>
+                
+                <div id="output-container" class="flex-1 overflow-y-auto bg-slate-950/70 rounded-xl border border-slate-900 p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap leading-relaxed shadow-inner">
+Waiting for agent to submit final execution deliverables...
                 </div>
             </div>
         </div>
@@ -98,7 +183,13 @@ Waiting for agent to complete...
         mermaid.initialize({ 
             startOnLoad: false, 
             theme: 'dark',
-            flowchart: { curve: 'basis', padding: 20 }
+            themeVariables: {
+                background: '#090d16',
+                primaryColor: '#1e293b',
+                lineColor: '#475569',
+                textColor: '#cbd5e1'
+            },
+            flowchart: { curve: 'basis', padding: 25 }
         });
 
         let currentRunId = null;
@@ -152,11 +243,11 @@ Waiting for agent to complete...
                     const statusEl = document.getElementById('stat-status');
                     statusEl.textContent = data.info.status;
                     if (data.info.status === 'success') {
-                        statusEl.className = 'text-xs bg-emerald-900/30 border border-emerald-700 px-2 py-1 rounded text-emerald-400 font-semibold uppercase tracking-wider';
+                        statusEl.className = 'text-[9px] bg-emerald-950 border border-emerald-900 px-3 py-1 rounded-full text-emerald-400 font-bold uppercase tracking-wider shadow-sm';
                     } else if (data.info.status === 'failed') {
-                        statusEl.className = 'text-xs bg-red-900/30 border border-red-700 px-2 py-1 rounded text-red-400 font-semibold uppercase tracking-wider';
+                        statusEl.className = 'text-[9px] bg-rose-950 border border-rose-900 px-3 py-1 rounded-full text-rose-400 font-bold uppercase tracking-wider shadow-sm';
                     } else {
-                        statusEl.className = 'text-xs bg-blue-900/30 border border-blue-700 px-2 py-1 rounded text-blue-400 font-semibold uppercase tracking-wider animate-pulse';
+                        statusEl.className = 'text-[9px] bg-indigo-950 border border-indigo-900 px-3 py-1 rounded-full text-indigo-400 font-bold uppercase tracking-wider animate-pulse shadow-sm';
                     }
 
                     renderTimeline(data.states, data.rollbacks);
@@ -165,7 +256,7 @@ Waiting for agent to complete...
                     if (data.info.status === 'success' || data.info.status === 'failed') {
                         document.getElementById('output-container').textContent = data.info.final_output;
                     } else {
-                        document.getElementById('output-container').textContent = `Goal: ${data.info.goal}\n\nStatus: ${data.info.status}...`;
+                        document.getElementById('output-container').textContent = `Goal: ${data.info.goal}\n\nStatus: ${data.info.status.toUpperCase()}...\nRunning loops & checks under DriftGuard protection.`;
                     }
                 }
             } catch (err) {
@@ -191,9 +282,9 @@ Waiting for agent to complete...
                 const rawId = `raw-${state.step_id}-${i}`;
                 
                 const divHtml = isDiverged ? `
-                    <div class="mt-2 bg-red-900/20 border-l-4 border-red-600 rounded p-2 text-xs font-mono">
-                        <div class="text-red-400 font-bold">>>> DIVERGENCE SIGNALED: ${state.divergence_reason || 'Unknown'}</div>
-                        <div class="text-red-300/80 mt-1">${state.divergence_details || 'No details provided'}</div>
+                    <div class="mt-3 bg-red-950/40 border-l-4 border-red-500 rounded-xl p-3 text-xs font-mono shadow-inner">
+                        <div class="text-red-400 font-bold flex items-center gap-1.5">🛑 DIVERGENCE DETECTED: ${state.divergence_reason || 'Unknown'}</div>
+                        <div class="text-red-300/80 mt-1.5 whitespace-pre-wrap">${state.divergence_details || 'No details provided'}</div>
                     </div>
                 ` : '';
 
@@ -201,42 +292,45 @@ Waiting for agent to complete...
                 const actionStr = JSON.stringify(state.action, null, 2);
                 
                 const html = `
-                    <div class="state-card ${isDiverged ? 'diverged' : ''} bg-[#1e1e1e] border border-[#333] rounded shadow-lg relative transition-all font-mono text-sm">
-                        ${isDiverged ? '<div class="absolute -right-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10 animate-pulse">FATAL</div>' : ''}
+                    <div class="state-card ${isDiverged ? 'diverged bg-slate-900/10 border-red-900/50' : 'bg-slate-900/40 border-slate-800'} border rounded-2xl relative transition-all font-sans">
+                        ${isDiverged ? '<div class="absolute -right-1.5 -top-1.5 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-red-500/20 z-10 tracking-widest uppercase animate-pulse">Diverged</div>' : ''}
                         
-                        <div class="bg-[#2d2d2d] border-b border-[#444] px-3 py-1.5 flex justify-between items-center rounded-t">
+                        <div class="bg-slate-950/70 border-b border-slate-900 px-4 py-2 flex justify-between items-center rounded-t-2xl">
                             <div class="flex items-center gap-3">
-                                <span class="text-blue-400 font-bold">Step[${state.step_id}]</span>
-                                <span class="text-[#888] text-xs">${new Date((state.timestamp || Date.now()) * 1000).toISOString()}</span>
+                                <span class="text-indigo-400 font-bold text-xs font-mono">Step [${state.step_id}]</span>
+                                <span class="text-slate-500 text-[10px] font-medium">${new Date((state.timestamp || Date.now()) * 1000).toLocaleTimeString()}</span>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <span class="bg-[#444] text-gray-300 text-[10px] px-1.5 py-0.5 rounded" title="State Hash">#${(state.state_hash || '').substring(0,8)}</span>
-                                <span class="bg-[#444] text-gray-300 text-[10px] px-1.5 py-0.5 rounded" title="Memory Length">M:${state.memory_len || 0}</span>
+                            <div class="flex items-center gap-2 font-mono text-[9px]">
+                                <span class="bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded-full" title="State Hash">#${(state.state_hash || '').substring(0,8)}</span>
+                                <span class="bg-slate-900 border border-slate-800 text-slate-400 px-2 py-0.5 rounded-full" title="Memory Length">Memory: ${state.memory_len || 0}</span>
                             </div>
                         </div>
 
-                        <div class="p-3">
-                            <div class="mb-2">
-                                <span class="text-green-400">⚡ action: </span>
-                                <span class="text-gray-300">${state.action.tool_name || 'unknown'}</span>
+                        <div class="p-4">
+                            <div class="mb-2.5 flex items-center gap-1.5">
+                                <span class="text-indigo-400 text-xs font-bold font-mono">Tool Call:</span>
+                                <span class="bg-slate-950 text-slate-200 border border-slate-800 px-2 py-0.5 rounded-lg text-xs font-mono font-medium">${state.action.tool_name || 'unknown'}</span>
                             </div>
                             
-                            <div class="mb-3 text-gray-400 italic text-xs border-l-2 border-[#555] pl-2 whitespace-pre-wrap">${state.scratchpad || 'No scratchpad generated'}</div>
+                            <div class="mb-3 text-slate-400 italic text-xs border-l-2 border-indigo-500/40 pl-3 whitespace-pre-wrap leading-relaxed">${state.scratchpad || 'No reasoning trace generated.'}</div>
                             
-                            <div class="bg-[#111] border border-[#333] rounded p-2 overflow-x-auto">
-                                <div class="text-[#888] text-[10px] uppercase mb-1">Observation Context</div>
-                                <div class="text-gray-300 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">${state.observation || 'null'}</div>
+                            <div class="bg-slate-950/60 border border-slate-900 rounded-xl p-3">
+                                <div class="text-slate-500 font-semibold text-[9px] uppercase tracking-wider mb-1.5">Observation Context</div>
+                                <div class="text-slate-300 font-mono text-xs whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">${state.observation || 'null'}</div>
                             </div>
 
                             ${divHtml}
 
-                            <div class="mt-3 text-right">
-                                <button onclick="toggleRaw('${rawId}')" class="text-blue-400 hover:text-blue-300 text-xs underline focus:outline-none">Inspect Payload</button>
+                            <div class="mt-3.5 flex justify-between items-center">
+                                <div></div>
+                                <button onclick="toggleRaw('${rawId}')" class="text-indigo-400 hover:text-indigo-300 text-xs font-semibold focus:outline-none transition-all flex items-center gap-1 hover:underline">
+                                    <span>🔍</span> Inspect JSON Payload
+                                </button>
                             </div>
                             
-                            <div id="${rawId}" class="hidden mt-2 bg-black border border-gray-700 rounded p-2 text-xs text-gray-300 overflow-x-auto">
-                                <div><span class="text-purple-400">"action"</span>: ${actionStr}</div>
-                                <div class="mt-1"><span class="text-purple-400">"metadata"</span>: ${JSON.stringify(state.metadata || {}, null, 2)}</div>
+                            <div id="${rawId}" class="hidden mt-3 bg-slate-950 border border-slate-900 rounded-xl p-3 text-[11px] font-mono text-slate-300 overflow-x-auto shadow-inner leading-relaxed">
+                                <div><span class="text-indigo-400">"action"</span>: ${actionStr}</div>
+                                <div class="mt-2"><span class="text-indigo-400">"metadata"</span>: ${JSON.stringify(state.metadata || {}, null, 2)}</div>
                             </div>
                         </div>
                     </div>
@@ -245,11 +339,10 @@ Waiting for agent to complete...
             });
 
             if (rollbacks && rollbacks.length > 0) {
-                // Insert rollback indicators between states (simplified visual for now)
                 const rbHtml = `
-                    <div class="flex items-center justify-center my-4">
-                        <div class="bg-orange-900/50 border border-orange-700 text-orange-400 text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
-                            <span class="text-lg">↩</span> ${rollbacks.length} Rollbacks performed
+                    <div class="flex items-center justify-center my-5 animate-bounce">
+                        <div class="bg-amber-950/40 border border-amber-900/60 text-amber-400 text-xs px-4 py-2 rounded-full flex items-center gap-2 font-semibold shadow-lg shadow-amber-500/5">
+                            <span class="text-sm">↩</span> rolled back ${rollbacks.length} times to safe state
                         </div>
                     </div>
                 `;
@@ -268,7 +361,31 @@ Waiting for agent to complete...
             
             try {
                 // Clear and render
-                container.innerHTML = `<div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center"></div>`;
+                container.innerHTML = `
+                    <!-- Custom sleek floating zoom controls -->
+                    <div class="absolute top-4 right-4 flex flex-col gap-1.5 z-20">
+                        <button id="zoom-in" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none text-base" title="Zoom In">+</button>
+                        <button id="zoom-out" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none text-base" title="Zoom Out">−</button>
+                        <button id="zoom-reset" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 transition-all shadow-md select-none text-sm" title="Reset Zoom">⟲</button>
+                    </div>
+                    <div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center"></div>
+                `;
+                
+                // Add event listeners back to the newly rendered buttons
+                document.getElementById('zoom-in').addEventListener('click', () => {
+                    if (panZoomInstance) panZoomInstance.zoomIn();
+                });
+                document.getElementById('zoom-out').addEventListener('click', () => {
+                    if (panZoomInstance) panZoomInstance.zoomOut();
+                });
+                document.getElementById('zoom-reset').addEventListener('click', () => {
+                    if (panZoomInstance) {
+                        panZoomInstance.reset();
+                        panZoomInstance.fit();
+                        panZoomInstance.center();
+                    }
+                });
+
                 const target = document.getElementById('mermaid-target');
                 target.textContent = mermaidString;
                 const { svg } = await mermaid.render('mermaid-svg', mermaidString);
@@ -284,7 +401,7 @@ Waiting for agent to complete...
                     }
                     panZoomInstance = svgPanZoom(svgElement, {
                         zoomEnabled: true,
-                        controlIconsEnabled: true,
+                        controlIconsEnabled: false,
                         fit: true,
                         center: true,
                         minZoom: 0.1,
@@ -296,20 +413,20 @@ Waiting for agent to complete...
             }
         }
 
-        // Setup
+        // Setup Event Listener
         document.getElementById('run-selector').addEventListener('change', (e) => {
             currentRunId = e.target.value;
             lastStateCount = 0;
             fetchRunDetails(currentRunId);
         });
 
-        // Polling loop
+        // Polling loop (every 2 seconds)
         setInterval(() => {
             fetchRuns();
             if (currentRunId) fetchRunDetails(currentRunId);
         }, 2000);
         
-        // Initial fetch
+        // Initial execution
         fetchRuns();
     </script>
 </body>
