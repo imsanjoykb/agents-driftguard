@@ -109,7 +109,7 @@
     <main class="flex-1 flex overflow-hidden">
         
         <!-- Left Panel: Execution Timeline -->
-        <div class="w-[35%] flex flex-col border-r border-slate-900 glass-panel shadow-2xl z-10">
+        <div class="w-[35%] flex flex-col h-full border-r border-slate-900 glass-panel shadow-2xl z-10 overflow-hidden">
             <div class="p-5 border-b border-slate-900 flex flex-col gap-4">
                 <div class="flex justify-between items-center">
                     <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Execution Timeline</h2>
@@ -140,7 +140,7 @@
         </div>
         
         <!-- Right Panel: Causal Graph & Explainer -->
-        <div class="w-[65%] flex flex-col relative bg-[#06080d]">
+        <div class="w-[65%] flex flex-col h-full relative bg-[#06080d] overflow-hidden">
             
             <!-- Top Right: Causal Graph -->
             <div class="h-[60%] p-6 flex flex-col relative border-b border-slate-900">
@@ -167,22 +167,20 @@
                 
                 <div class="flex-1 flex gap-6 overflow-hidden z-10 mt-1">
                     <!-- Left Column: Goal & Status -->
-                    <div class="w-1/2 flex flex-col h-full overflow-hidden">
-                        <div class="bg-slate-950/60 rounded-xl border border-slate-900 p-4 h-full overflow-y-auto space-y-4">
-                            <!-- Goal Section -->
-                            <div>
-                                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Target Goal</span>
-                                <p id="guide-goal" class="text-sm text-slate-200 font-semibold leading-relaxed">Waiting for run...</p>
+                    <div class="w-1/2 bg-slate-950/60 rounded-xl border border-slate-900 p-4 overflow-y-auto space-y-4 text-sm flex flex-col">
+                        <!-- Goal Section -->
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Target Goal</span>
+                            <p id="guide-goal" class="text-sm text-slate-200 font-semibold leading-relaxed">Waiting for run...</p>
+                        </div>
+                        
+                        <!-- Result Section -->
+                        <div class="border-t border-slate-900/60 pt-3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Agent Result / Causal Summary</span>
+                                <span id="guide-status-badge" class="text-[9px] bg-slate-900 border border-slate-800 text-slate-400 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Idle</span>
                             </div>
-                            
-                            <!-- Result Section -->
-                            <div class="border-t border-slate-900/60 pt-3">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Agent Result / Causal Summary</span>
-                                    <span id="guide-status-badge" class="text-[9px] bg-slate-900 border border-slate-800 text-slate-400 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Idle</span>
-                                </div>
-                                <p id="guide-output" class="text-xs text-indigo-300 font-mono leading-relaxed">Awaiting completion...</p>
-                            </div>
+                            <p id="guide-output" class="text-xs text-indigo-300 font-mono leading-relaxed">Awaiting completion...</p>
                         </div>
                     </div>
                     
