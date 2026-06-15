@@ -2,6 +2,13 @@
   <h1 align="center">🛡️ DriftGuard</h1>
   <p align="center"><strong>A State-Aware Rollback and Trajectory-Replanning Framework for Autonomous LLM Agents</strong></p>
   <p align="center">
+    <a href="https://github.com/imsanjoykb/agents-driftguard/actions/workflows/test.yml"><img src="https://github.com/imsanjoykb/agents-driftguard/actions/workflows/test.yml/badge.svg" alt="CI Status"></a>
+    <a href="https://pypi.org/project/agents-driftguard/"><img src="https://img.shields.io/pypi/v/agents-driftguard.svg" alt="PyPI Version"></a>
+    <a href="https://pypi.org/project/agents-driftguard/"><img src="https://img.shields.io/pypi/pyversions/agents-driftguard.svg" alt="Python Versions"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+    <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code Style: Black"></a>
+  </p>
+  <p align="center">
     <a href="#installation">Installation</a> •
     <a href="#quickstart">Quickstart</a> •
     <a href="#how-it-works">How it Works</a> •
