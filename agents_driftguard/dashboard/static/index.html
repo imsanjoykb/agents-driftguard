@@ -139,7 +139,7 @@
             </div>
         </div>
         
-        <!-- Right Panel: Causal Graph & Output -->
+        <!-- Right Panel: Causal Graph & Explainer -->
         <div class="w-[65%] flex flex-col relative bg-[#06080d]">
             
             <!-- Top Right: Causal Graph -->
@@ -152,28 +152,72 @@
                 <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-20 z-0 pointer-events-none"></div>
                 
                 <div id="mermaid-container" class="flex-1 overflow-hidden rounded-2xl bg-slate-950/40 border border-slate-900 flex items-center justify-center p-4 z-10 relative">
-                    <!-- Custom sleek floating zoom controls -->
-                    <div class="absolute top-4 right-4 flex flex-col gap-1.5 z-20">
-                        <button id="zoom-in" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none" title="Zoom In">+</button>
-                        <button id="zoom-out" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 font-semibold transition-all shadow-md select-none" title="Zoom Out">−</button>
-                        <button id="zoom-reset" class="w-8 h-8 rounded-lg bg-slate-900/90 border border-slate-800/80 flex items-center justify-center hover:bg-slate-800 hover:text-white active:scale-95 text-slate-300 transition-all shadow-md select-none text-sm" title="Reset Zoom">⟲</button>
-                    </div>
-                    
                     <div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center text-slate-500 font-mono text-xs">
                         Trajectory graph will render upon agent execution...
                     </div>
                 </div>
             </div>
             
-            <!-- Bottom Right: Goal & Final Output -->
-            <div class="h-[40%] p-6 glass-panel flex flex-col relative shadow-inner">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Final Output / Goal Details</h2>
-                    <span class="text-[10px] text-indigo-400 font-bold tracking-wider uppercase">Results Summary</span>
+            <!-- Bottom Right: Goal & Explainer Guide -->
+            <div class="h-[40%] p-6 glass-panel flex flex-col relative shadow-inner overflow-hidden">
+                <div class="flex justify-between items-center mb-3 border-b border-slate-900 pb-2 z-10">
+                    <h2 class="font-bold text-slate-200 text-sm tracking-wide uppercase">Causal Analysis & Guide</h2>
+                    <span class="text-[10px] text-indigo-400 font-bold tracking-wider uppercase">DriftGuard Insight</span>
                 </div>
                 
-                <div id="output-container" class="flex-1 overflow-y-auto bg-slate-950/70 rounded-xl border border-slate-900 p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap leading-relaxed shadow-inner">
-Waiting for agent to submit final execution deliverables...
+                <div class="flex-1 flex gap-6 overflow-hidden z-10 mt-1">
+                    <!-- Left Column: Goal & Status -->
+                    <div class="w-1/2 flex flex-col h-full overflow-hidden">
+                        <div class="bg-slate-950/60 rounded-xl border border-slate-900 p-4 h-full overflow-y-auto space-y-4">
+                            <!-- Goal Section -->
+                            <div>
+                                <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Target Goal</span>
+                                <p id="guide-goal" class="text-sm text-slate-200 font-semibold leading-relaxed">Waiting for run...</p>
+                            </div>
+                            
+                            <!-- Result Section -->
+                            <div class="border-t border-slate-900/60 pt-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Agent Result / Causal Summary</span>
+                                    <span id="guide-status-badge" class="text-[9px] bg-slate-900 border border-slate-800 text-slate-400 font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Idle</span>
+                                </div>
+                                <p id="guide-output" class="text-xs text-indigo-300 font-mono leading-relaxed">Awaiting completion...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Explainer Guide -->
+                    <div class="w-1/2 bg-slate-950/60 rounded-xl border border-slate-900 p-4 overflow-y-auto text-xs space-y-3">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider block border-b border-slate-900/60 pb-1">Telemetry Explainer</span>
+                        
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs select-none">🟢</span>
+                            <div>
+                                <h4 class="font-bold text-slate-300">Causally-Safe States</h4>
+                                <p class="text-slate-400 text-[11px] leading-relaxed mt-0.5">Execution steps where the agent proceeded correctly without triggering any goal drift, tool errors, or loops.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs select-none">🔴</span>
+                            <div>
+                                <h4 class="font-bold text-slate-300">Divergence Detected</h4>
+                                <p class="text-slate-400 text-[11px] leading-relaxed mt-0.5">An execution failure was flagged (e.g. tool timeout, infinite loop, or poor output quality) before it could cascade.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs select-none">↩</span>
+                            <div>
+                                <h4 class="font-bold text-slate-300">Causal Rollback & Re-plan</h4>
+                                <p class="text-slate-400 text-[11px] leading-relaxed mt-0.5">DriftGuard reverted the environment to the last safe green state, injected the error warning, and guided the agent to try a different approach.</p>
+                            </div>
+                        </div>
+
+                        <div class="text-[10px] text-slate-500 italic mt-4 pt-2 border-t border-slate-900/40">
+                            * Note: The execution steps represent a simulated environment to demonstrate error-recovery under DriftGuard middleware protection.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -253,10 +297,21 @@ Waiting for agent to submit final execution deliverables...
                     renderTimeline(data.states, data.rollbacks);
                     renderGraph(data.graph);
                     
-                    if (data.info.status === 'success' || data.info.status === 'failed') {
-                        document.getElementById('output-container').textContent = data.info.final_output;
+                    // Update the new guide fields
+                    document.getElementById('guide-goal').textContent = data.info.goal;
+                    
+                    const statusBadge = document.getElementById('guide-status-badge');
+                    statusBadge.textContent = data.info.status;
+                    
+                    if (data.info.status === 'success') {
+                        statusBadge.className = 'text-[9px] bg-emerald-950 border border-emerald-900 px-2.5 py-1 rounded-full text-emerald-400 font-bold uppercase tracking-wider';
+                        document.getElementById('guide-output').textContent = data.info.final_output;
+                    } else if (data.info.status === 'failed') {
+                        statusBadge.className = 'text-[9px] bg-rose-950 border border-rose-900 px-2.5 py-1 rounded-full text-rose-400 font-bold uppercase tracking-wider';
+                        document.getElementById('guide-output').textContent = data.info.final_output;
                     } else {
-                        document.getElementById('output-container').textContent = `Goal: ${data.info.goal}\n\nStatus: ${data.info.status.toUpperCase()}...\nRunning loops & checks under DriftGuard protection.`;
+                        statusBadge.className = 'text-[9px] bg-indigo-950 border border-indigo-900 px-2.5 py-1 rounded-full text-indigo-400 font-bold uppercase tracking-wider animate-pulse';
+                        document.getElementById('guide-output').textContent = "Agent executing steps...";
                     }
                 }
             } catch (err) {

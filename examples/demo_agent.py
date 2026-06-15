@@ -20,7 +20,7 @@ def mock_agent_executor(prompt: str) -> str:
         # After rollback, it will try a different strategy
         return "ACTION: write_to_stdout\nOBSERVATION: Wrote records to stdout."
     else:
-        return "FINAL ANSWER: Successfully processed and printed the records."
+        return "FINAL ANSWER: Trajectory completed successfully. DriftGuard detected a tool failure (Permission Denied) at step 3 when writing to a file. Reverting the agent to the last safe state (step 2) allowed it to replan, redirect the output to stdout at step 4, and complete the run safely."
 
 # 2. Start the live dashboard in the background
 start_dashboard_server(port=8050)
@@ -33,7 +33,7 @@ wrapper = AgentUndoWrapper(
 )
 
 print("🚀 Starting agent run! Open http://localhost:8050 in your browser to watch.")
-result = wrapper.run(goal="Process records and save them.")
+result = wrapper.run(goal="Process user records and save them to a secure destination.")
 
 print("\n=== Agent Finished ===")
 print(f"Success: {result.success}")
