@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agents-driftguard"
+version = "0.1.0"
+description = "Causal rollback and replanning for LLM agents"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "agents-driftguard contributors" },
+]
+keywords = [
+    "agents",
+    "llm",
+    "rollback",
+    "replanning",
+    "causal-graph",
+    "reliability",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "numpy>=1.24",
+    "networkx>=3.0",
+]
+
+[project.optional-dependencies]
+embeddings = ["sentence-transformers>=2.2"]
+openai = ["openai>=1.0"]
+langchain = ["langchain-core>=0.1"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "black>=23.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/agents-driftguard/agents-driftguard"
+Documentation = "https://github.com/agents-driftguard/agents-driftguard#readme"
+Repository = "https://github.com/agents-driftguard/agents-driftguard"
+Issues = "https://github.com/agents-driftguard/agents-driftguard/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["agents_driftguard/tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

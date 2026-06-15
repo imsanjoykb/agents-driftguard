@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>agentundo Dashboard</title>
+    <!-- Tailwind for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mermaid for graph rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <!-- SVG Pan Zoom for the graph -->
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .state-card { border-left: 4px solid #3b82f6; }
+        .state-card.diverged { border-left-color: #ef4444; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans">
+    
+    <header class="glass p-4 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-blue-600 flex items-center justify-center font-bold text-lg">↺</div>
+            <h1 class="text-xl font-semibold tracking-tight">agentundo<span class="text-slate-400 font-normal text-sm ml-2">Live Dashboard</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <select id="run-selector" class="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                <option value="">Waiting for runs...</option>
+            </select>
+            <div id="status-indicator" class="flex items-center gap-2 text-sm">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                </span>
+                <span class="text-slate-300">Listening</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Left Panel: States & Rollbacks -->
+        <div class="w-1/3 flex flex-col border-r border-slate-800 glass z-0">
+            <div class="p-4 border-b border-slate-800 flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-medium text-slate-200 text-lg">Execution Timeline</h2>
+                    <div class="flex gap-2">
+                        <span id="stat-status" class="text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded text-slate-400 font-semibold uppercase tracking-wider">Running</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Steps</div>
+                        <div id="stat-steps" class="text-lg text-slate-200 font-mono">0</div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Rollbacks</div>
+                        <div id="stat-rollbacks" class="text-lg text-slate-200 font-mono">0</div>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-700 rounded p-2 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Time</div>
+                        <div id="stat-time" class="text-lg text-slate-200 font-mono">0s</div>
+                    </div>
+                </div>
+            </div>
+            <div id="timeline" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="text-center text-slate-500 text-sm mt-10">Select a run to view its timeline.</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Causal Graph & Output -->
+        <div class="w-2/3 flex flex-col relative">
+            <div class="h-2/3 p-4 overflow-hidden flex flex-col relative">
+                <h2 class="font-medium text-slate-200 mb-2 z-10">Causal Graph</h2>
+                <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-20 z-0"></div>
+                <div id="mermaid-container" class="flex-1 overflow-auto rounded bg-slate-900/50 border border-slate-800 flex items-center justify-center p-4 z-10">
+                    <div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center text-slate-500">
+                        Graph will appear here
+                    </div>
+                </div>
+            </div>
+            
+            <div class="h-1/3 p-4 border-t border-slate-800 glass flex flex-col">
+                <h2 class="font-medium text-slate-200 mb-2">Final Output / Goal</h2>
+                <div id="output-container" class="flex-1 overflow-y-auto bg-slate-900 rounded border border-slate-800 p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap">
+Waiting for agent to complete...
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: 'dark',
+            flowchart: { curve: 'basis', padding: 20 }
+        });
+
+        let currentRunId = null;
+        let lastStateCount = 0;
+
+        async function fetchRuns() {
+            try {
+                const res = await fetch('/api/runs');
+                const data = await res.json();
+                const selector = document.getElementById('run-selector');
+                
+                if (data.runs && data.runs.length > 0) {
+                    const currentVal = selector.value;
+                    selector.innerHTML = '';
+                    data.runs.forEach(run => {
+                        const opt = document.createElement('option');
+                        opt.value = run.run_id;
+                        opt.textContent = `${new Date(run.start_time * 1000).toLocaleTimeString()} - ${run.goal.substring(0, 30)}... [${run.status}]`;
+                        selector.appendChild(opt);
+                    });
+                    
+                    if (!currentRunId && data.runs.length > 0) {
+                        currentRunId = data.runs[0].run_id;
+                        selector.value = currentRunId;
+                        fetchRunDetails(currentRunId);
+                    } else if (currentVal) {
+                        selector.value = currentVal;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch runs", err);
+            }
+        }
+
+        async function fetchRunDetails(runId) {
+            try {
+                const res = await fetch(`/api/runs/${runId}`);
+                const data = await res.json();
+                
+                if (data.states && data.states.length !== lastStateCount) {
+                    lastStateCount = data.states.length;
+                    
+                    // Update Stats
+                    document.getElementById('stat-steps').textContent = data.info.state_count;
+                    document.getElementById('stat-rollbacks').textContent = data.info.rollback_count;
+                    
+                    const endTime = data.info.end_time || (Date.now() / 1000);
+                    const duration = Math.max(0, endTime - data.info.start_time).toFixed(1);
+                    document.getElementById('stat-time').textContent = `${duration}s`;
+                    
+                    const statusEl = document.getElementById('stat-status');
+                    statusEl.textContent = data.info.status;
+                    if (data.info.status === 'success') {
+                        statusEl.className = 'text-xs bg-emerald-900/30 border border-emerald-700 px-2 py-1 rounded text-emerald-400 font-semibold uppercase tracking-wider';
+                    } else if (data.info.status === 'failed') {
+                        statusEl.className = 'text-xs bg-red-900/30 border border-red-700 px-2 py-1 rounded text-red-400 font-semibold uppercase tracking-wider';
+                    } else {
+                        statusEl.className = 'text-xs bg-blue-900/30 border border-blue-700 px-2 py-1 rounded text-blue-400 font-semibold uppercase tracking-wider animate-pulse';
+                    }
+
+                    renderTimeline(data.states, data.rollbacks);
+                    renderGraph(data.graph);
+                    
+                    if (data.info.status === 'success' || data.info.status === 'failed') {
+                        document.getElementById('output-container').textContent = data.info.final_output;
+                    } else {
+                        document.getElementById('output-container').textContent = `Goal: ${data.info.goal}\n\nStatus: ${data.info.status}...`;
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch run details", err);
+            }
+        }
+
+        function toggleRaw(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function renderTimeline(states, rollbacks) {
+            const container = document.getElementById('timeline');
+            container.innerHTML = '';
+            
+            states.forEach((state, i) => {
+                const isDiverged = state.diverged;
+                const rawId = `raw-${state.step_id}-${i}`;
+                
+                const divHtml = isDiverged ? `
+                    <div class="mt-2 bg-red-900/20 border-l-4 border-red-600 rounded p-2 text-xs font-mono">
+                        <div class="text-red-400 font-bold">>>> DIVERGENCE SIGNALED: ${state.divergence_reason || 'Unknown'}</div>
+                        <div class="text-red-300/80 mt-1">${state.divergence_details || 'No details provided'}</div>
+                    </div>
+                ` : '';
+
+                // JSON highlight snippet
+                const actionStr = JSON.stringify(state.action, null, 2);
+                
+                const html = `
+                    <div class="state-card ${isDiverged ? 'diverged' : ''} bg-[#1e1e1e] border border-[#333] rounded shadow-lg relative transition-all font-mono text-sm">
+                        ${isDiverged ? '<div class="absolute -right-2 -top-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10 animate-pulse">FATAL</div>' : ''}
+                        
+                        <div class="bg-[#2d2d2d] border-b border-[#444] px-3 py-1.5 flex justify-between items-center rounded-t">
+                            <div class="flex items-center gap-3">
+                                <span class="text-blue-400 font-bold">Step[${state.step_id}]</span>
+                                <span class="text-[#888] text-xs">${new Date((state.timestamp || Date.now()) * 1000).toISOString()}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="bg-[#444] text-gray-300 text-[10px] px-1.5 py-0.5 rounded" title="State Hash">#${(state.state_hash || '').substring(0,8)}</span>
+                                <span class="bg-[#444] text-gray-300 text-[10px] px-1.5 py-0.5 rounded" title="Memory Length">M:${state.memory_len || 0}</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3">
+                            <div class="mb-2">
+                                <span class="text-green-400">⚡ action: </span>
+                                <span class="text-gray-300">${state.action.tool_name || 'unknown'}</span>
+                            </div>
+                            
+                            <div class="mb-3 text-gray-400 italic text-xs border-l-2 border-[#555] pl-2 whitespace-pre-wrap">${state.scratchpad || 'No scratchpad generated'}</div>
+                            
+                            <div class="bg-[#111] border border-[#333] rounded p-2 overflow-x-auto">
+                                <div class="text-[#888] text-[10px] uppercase mb-1">Observation Context</div>
+                                <div class="text-gray-300 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">${state.observation || 'null'}</div>
+                            </div>
+
+                            ${divHtml}
+
+                            <div class="mt-3 text-right">
+                                <button onclick="toggleRaw('${rawId}')" class="text-blue-400 hover:text-blue-300 text-xs underline focus:outline-none">Inspect Payload</button>
+                            </div>
+                            
+                            <div id="${rawId}" class="hidden mt-2 bg-black border border-gray-700 rounded p-2 text-xs text-gray-300 overflow-x-auto">
+                                <div><span class="text-purple-400">"action"</span>: ${actionStr}</div>
+                                <div class="mt-1"><span class="text-purple-400">"metadata"</span>: ${JSON.stringify(state.metadata || {}, null, 2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+
+            if (rollbacks && rollbacks.length > 0) {
+                // Insert rollback indicators between states (simplified visual for now)
+                const rbHtml = `
+                    <div class="flex items-center justify-center my-4">
+                        <div class="bg-orange-900/50 border border-orange-700 text-orange-400 text-xs px-4 py-1.5 rounded-full flex items-center gap-2">
+                            <span class="text-lg">↩</span> ${rollbacks.length} Rollbacks performed
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += rbHtml;
+            }
+            
+            // Auto scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        let panZoomInstance = null;
+
+        async function renderGraph(mermaidString) {
+            if (!mermaidString) return;
+            const container = document.getElementById('mermaid-container');
+            
+            try {
+                // Clear and render
+                container.innerHTML = `<div id="mermaid-target" class="mermaid w-full h-full flex items-center justify-center"></div>`;
+                const target = document.getElementById('mermaid-target');
+                target.textContent = mermaidString;
+                const { svg } = await mermaid.render('mermaid-svg', mermaidString);
+                target.innerHTML = svg;
+
+                // Add pan/zoom
+                const svgElement = target.querySelector('svg');
+                if (svgElement) {
+                    svgElement.style.width = '100%';
+                    svgElement.style.height = '100%';
+                    if (panZoomInstance) {
+                        panZoomInstance.destroy();
+                    }
+                    panZoomInstance = svgPanZoom(svgElement, {
+                        zoomEnabled: true,
+                        controlIconsEnabled: true,
+                        fit: true,
+                        center: true,
+                        minZoom: 0.1,
+                        maxZoom: 10
+                    });
+                }
+            } catch (err) {
+                console.error("Mermaid render failed", err);
+            }
+        }
+
+        // Setup
+        document.getElementById('run-selector').addEventListener('change', (e) => {
+            currentRunId = e.target.value;
+            lastStateCount = 0;
+            fetchRunDetails(currentRunId);
+        });
+
+        // Polling loop
+        setInterval(() => {
+            fetchRuns();
+            if (currentRunId) fetchRunDetails(currentRunId);
+        }, 2000);
+        
+        // Initial fetch
+        fetchRuns();
+    </script>
+</body>
+</html>
