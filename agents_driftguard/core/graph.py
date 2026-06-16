@@ -138,6 +138,7 @@ class CausalGraph:
         self,
         from_step_id: int,
         goal_sim_threshold: float = 0.75,
+        failed_resource: str | None = None,
     ) -> AgentState | None:
         """Find the most recent safe ancestor to roll back to.
 
@@ -149,16 +150,35 @@ class CausalGraph:
            is also marked as failed (heuristic: any diverged node in its
            subtree has a failed tool).
 
+        If ``failed_resource`` is provided, we traverse backwards to find the last ancestor
+        state that modified/created this resource (i.e. lists it in its ``outputs``) or used it
+        (lists it in its ``inputs``), and suggest rolling back to the step *before* it, allowing
+        the agent to replan that action.
+
         Args:
             from_step_id: The step from which to start searching backwards.
             goal_sim_threshold: Minimum cosine similarity between goal and
                 state embeddings.
+            failed_resource: Optional key identifying the failed resource dependency.
 
         Returns:
             The safest recent ``AgentState`` to roll back to, or ``None``
             if no safe point exists.
         """
         ancestors = self.get_ancestors(from_step_id)
+
+        # 1. Dependency-aware rollback traversal
+        if failed_resource:
+            for state in reversed(ancestors):
+                if failed_resource in state.outputs or failed_resource in state.inputs:
+                    target_step = state.step_id - 1
+                    target_state = self.get_state(target_step) if target_step >= 0 else None
+                    if target_state and not target_state.diverged:
+                        return target_state
+                    elif target_step == -1 or target_step == 0:
+                        return self.get_state(0)
+
+        # 2. Standard safe rollback point logic
         # Walk backwards (most recent first)
         for state in reversed(ancestors):
             if state.diverged:

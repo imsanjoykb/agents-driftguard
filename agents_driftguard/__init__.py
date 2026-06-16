@@ -231,6 +231,9 @@ class AgentUndoWrapper:
 
         # Embedding backend
         self.embedder: EmbeddingBackend = get_embedder(embedding_backend)
+        from agents_driftguard.utils.embeddings import DummyEmbeddingBackend
+        if isinstance(self.embedder, DummyEmbeddingBackend):
+            self.goal_drift_threshold = -1.0
 
         # Causal graph
         self.graph = CausalGraph()
@@ -383,6 +386,37 @@ class AgentUndoWrapper:
             step_result = self.step_parser(raw_output)
             last_output = step_result.observation or step_result.raw_output
 
+            # Auto-extract inputs/outputs dependencies
+            inputs = []
+            outputs = []
+            action_args = step_result.action.get("args", {}) if step_result.action else {}
+            tool_name = step_result.action.get("tool_name", "") if step_result.action else ""
+            
+            # Look for resource arguments
+            resource_keys = ["path", "file", "filename", "table", "db", "db_name", "url", "resource"]
+            resource_val = None
+            if isinstance(action_args, dict):
+                for rk in resource_keys:
+                    if rk in action_args:
+                        resource_val = str(action_args[rk])
+                        break
+                if not resource_val and "query" in action_args:
+                    resource_val = str(action_args["query"])
+
+            if resource_val:
+                # Classify as input vs output based on tool name keywords
+                is_write = any(w in tool_name.lower() or w in step_result.action.get("type", "").lower() for w in ["write", "export", "save", "update", "delete", "clean"])
+                if is_write:
+                    outputs.append(resource_val)
+                else:
+                    inputs.append(resource_val)
+
+            # Heuristically scan observation text for saved/written resource names
+            if not outputs and step_result.observation:
+                match = re.search(r"(?i)\b(?:saved|written|exported)\s+to\s+([a-zA-Z0-9_\-\.\/]+)\b", step_result.observation)
+                if match:
+                    outputs.append(match.group(1))
+
             # 3. Build AgentState
             memory = prev_state.memory.copy()
             memory.append({"role": "assistant", "content": raw_output})
@@ -398,6 +432,8 @@ class AgentUndoWrapper:
                 scratchpad=step_result.scratchpad,
                 goal_embedding=goal_embedding,
                 state_embedding=state_embedding,
+                inputs=inputs,
+                outputs=outputs,
                 metadata={"raw_output": raw_output},
             )
 
@@ -452,6 +488,7 @@ class AgentUndoWrapper:
                 safe_state = self.graph.get_safe_rollback_point(
                     step_counter,
                     goal_sim_threshold=self.goal_drift_threshold,
+                    failed_resource=signal.failed_resource,
                 )
                 if safe_state is None:
                     # Fallback to initial state

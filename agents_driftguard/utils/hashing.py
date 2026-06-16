@@ -28,14 +28,18 @@ def compute_state_hash(
     observation: str,
     memory: list[dict[str, Any]],
     scratchpad: str,
+    inputs: list[str] | None = None,
+    outputs: list[str] | None = None,
 ) -> str:
     """Compute a deterministic SHA-256 hash over the core state fields.
 
     Args:
         action: The action dict (tool_name, args, etc.).
         observation: The tool/environment output string.
-        memory: Full conversation history snapshot.
+        memory: Full conversation history snapshot (excluded from hash to allow loop detection).
         scratchpad: Agent reasoning trace.
+        inputs: Optional list of resource inputs.
+        outputs: Optional list of resource outputs.
 
     Returns:
         Hex-encoded SHA-256 digest string.
@@ -44,8 +48,9 @@ def compute_state_hash(
         {
             "action": action,
             "observation": observation,
-            "memory": memory,
             "scratchpad": scratchpad,
+            "inputs": inputs or [],
+            "outputs": outputs or [],
         }
     )
     serialized = json.dumps(payload, sort_keys=True, default=str)

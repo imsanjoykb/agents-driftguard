@@ -33,6 +33,7 @@ class DivergenceSignal(BaseModel):
         diverged_at: Node ID of the diverged state (e.g. ``"S3"``).
         recommended_rollback: Suggested node ID to roll back to.
         details: Human-readable explanation.
+        failed_resource: Optional resource key identified as the cause of failure.
     """
 
     detected: bool = False
@@ -41,6 +42,7 @@ class DivergenceSignal(BaseModel):
     diverged_at: str = ""
     recommended_rollback: str = ""
     details: str = ""
+    failed_resource: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -191,12 +193,23 @@ class ToolFailureDetector(BaseDetector):
         for pattern in self.ERROR_PATTERNS:
             match = re.search(pattern, obs)
             if match:
+                # Extract failed resource heuristics (e.g. filename or database table)
+                failed_resource = None
+                file_match = re.search(r"\b([a-zA-Z0-9_\-\.\/]+\.(?:csv|db|json|txt|log|xml))\b", obs)
+                if file_match:
+                    failed_resource = file_match.group(1)
+                else:
+                    db_match = re.search(r"(?i)\b(?:table|relation|database)\s+['\"]?([a-zA-Z0-9_]+)['\"]?\b", obs)
+                    if db_match:
+                        failed_resource = db_match.group(1)
+
                 return DivergenceSignal(
                     detected=True,
                     confidence=0.85,
                     reason="tool_failure",
                     diverged_at=state.node_id,
                     details=f"Error pattern detected in observation: '{match.group()}'",
+                    failed_resource=failed_resource,
                 )
 
         return DivergenceSignal()

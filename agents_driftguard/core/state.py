@@ -39,6 +39,8 @@ class AgentState(BaseModel):
     scratchpad: str = ""
     goal_embedding: list[float] = Field(default_factory=list)
     state_embedding: list[float] = Field(default_factory=list)
+    inputs: list[str] = Field(default_factory=list)
+    outputs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     diverged: bool = False
     state_hash: str = ""
@@ -54,6 +56,8 @@ class AgentState(BaseModel):
                 observation=self.observation,
                 memory=self.memory,
                 scratchpad=self.scratchpad,
+                inputs=self.inputs,
+                outputs=self.outputs,
             )
         return self
 

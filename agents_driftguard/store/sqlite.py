@@ -37,6 +37,8 @@ class SQLiteStateStore:
         scratchpad    TEXT    NOT NULL DEFAULT '',
         goal_embedding TEXT   NOT NULL DEFAULT '[]',
         state_embedding TEXT  NOT NULL DEFAULT '[]',
+        inputs        TEXT    NOT NULL DEFAULT '[]',
+        outputs       TEXT    NOT NULL DEFAULT '[]',
         metadata      TEXT    NOT NULL DEFAULT '{}',
         diverged      INTEGER NOT NULL DEFAULT 0,
         state_hash    TEXT    NOT NULL DEFAULT ''
@@ -67,6 +69,8 @@ class SQLiteStateStore:
             "scratchpad": state.scratchpad,
             "goal_embedding": json.dumps(state.goal_embedding),
             "state_embedding": json.dumps(state.state_embedding),
+            "inputs": json.dumps(state.inputs),
+            "outputs": json.dumps(state.outputs),
             "metadata": json.dumps(state.metadata),
             "diverged": int(state.diverged),
             "state_hash": state.state_hash,
@@ -75,6 +79,16 @@ class SQLiteStateStore:
     @staticmethod
     def _row_to_state(row: sqlite3.Row) -> AgentState:
         """Convert a database row to an ``AgentState``."""
+        # Handle cases where columns might be missing if migrating (graceful defaults)
+        try:
+            inputs = json.loads(row["inputs"])
+        except (sqlite3.OperationalError, KeyError, IndexError):
+            inputs = []
+        try:
+            outputs = json.loads(row["outputs"])
+        except (sqlite3.OperationalError, KeyError, IndexError):
+            outputs = []
+
         return AgentState(
             step_id=row["step_id"],
             timestamp=row["timestamp"],
@@ -84,6 +98,8 @@ class SQLiteStateStore:
             scratchpad=row["scratchpad"],
             goal_embedding=json.loads(row["goal_embedding"]),
             state_embedding=json.loads(row["state_embedding"]),
+            inputs=inputs,
+            outputs=outputs,
             metadata=json.loads(row["metadata"]),
             diverged=bool(row["diverged"]),
             state_hash=row["state_hash"],
