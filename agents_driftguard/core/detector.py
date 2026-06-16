@@ -195,11 +195,11 @@ class ToolFailureDetector(BaseDetector):
             if match:
                 # Extract failed resource heuristics (e.g. filename or database table)
                 failed_resource = None
-                file_match = re.search(r"\b([a-zA-Z0-9_\-\.\/]+\.(?:csv|db|json|txt|log|xml))\b", obs)
+                file_match = re.search(r"\b([a-zA-Z0-9_\-\.\/]+\.(?:csv|db|json|txt|log|xml|py|sql|sh|yaml|yml|ini))\b", obs)
                 if file_match:
                     failed_resource = file_match.group(1)
                 else:
-                    db_match = re.search(r"(?i)\b(?:table|relation|database)\s+['\"]?([a-zA-Z0-9_]+)['\"]?\b", obs)
+                    db_match = re.search(r"(?i)\b(?:table|relation|database)\s*[:\s]\s*['\"]?([a-zA-Z0-9_]+)['\"]?\b", obs)
                     if db_match:
                         failed_resource = db_match.group(1)
 
@@ -682,6 +682,7 @@ class DivergenceDetector:
         best = max(fired, key=lambda s: s.confidence)
         reasons = sorted({s.reason for s in fired if s.reason})
         details = "; ".join(s.details for s in fired if s.details)
+        failed_res = next((s.failed_resource for s in fired if s.failed_resource), None)
 
         return DivergenceSignal(
             detected=True,
@@ -690,4 +691,5 @@ class DivergenceDetector:
             diverged_at=state.node_id,
             recommended_rollback=best.recommended_rollback,
             details=details,
+            failed_resource=failed_res,
         )

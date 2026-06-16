@@ -360,9 +360,11 @@
                         </div>
 
                         <div class="p-4">
-                            <div class="mb-2.5 flex items-center gap-1.5">
+                            <div class="mb-2.5 flex items-center gap-1.5 flex-wrap">
                                 <span class="text-indigo-400 text-xs font-bold font-mono">Tool Call:</span>
                                 <span class="bg-slate-950 text-slate-200 border border-slate-800 px-2 py-0.5 rounded-lg text-xs font-mono font-medium">${state.action.tool_name || 'unknown'}</span>
+                                ${state.inputs && state.inputs.length > 0 ? state.inputs.map(inp => `<span class="bg-blue-950/60 text-blue-300 border border-blue-900/60 px-2 py-0.5 rounded-lg text-[10px] font-mono font-semibold shadow-sm flex items-center gap-1">📥 ${inp}</span>`).join('') : ''}
+                                ${state.outputs && state.outputs.length > 0 ? state.outputs.map(out => `<span class="bg-emerald-950/60 text-emerald-300 border border-emerald-900/60 px-2 py-0.5 rounded-lg text-[10px] font-mono font-semibold shadow-sm flex items-center gap-1">📤 ${out}</span>`).join('') : ''}
                             </div>
                             
                             <div class="mb-3 text-slate-400 italic text-xs border-l-2 border-indigo-500/40 pl-3 whitespace-pre-wrap leading-relaxed">${state.scratchpad || 'No reasoning trace generated.'}</div>

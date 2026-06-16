@@ -73,6 +73,8 @@ class RunTracker:
                     "diverged": state.diverged,
                     "state_hash": state.state_hash,
                     "memory_len": len(state.memory),
+                    "inputs": state.inputs,
+                    "outputs": state.outputs,
                     "metadata": state.metadata,
                 }
                 # If state is replacing an existing one (e.g. rollback), we just append for timeline
