@@ -21,11 +21,6 @@ logger = logging.getLogger("agents_driftguard.async")
 
 
 class AsyncAgentUndoWrapper(AgentUndoWrapper):
-    """Asynchronous wrapper for agent executors.
-
-    Mirrors ``AgentUndoWrapper`` but the ``executor`` must be an async function
-    ``async def (prompt: str) -> str``, and the ``run`` method is async.
-    """
 
     def __init__(
         self,
@@ -60,14 +55,6 @@ class AsyncAgentUndoWrapper(AgentUndoWrapper):
         self.async_executor: Callable[[str], Awaitable[str]] = executor
 
     async def run(self, goal: str) -> AgentRunResult:  # type: ignore[override]
-        """Execute the agent asynchronously with rollback-aware state management.
-
-        Args:
-            goal: The task/goal description for the agent.
-
-        Returns:
-            An ``AgentRunResult`` summarising the run.
-        """
         logger.info("Starting async agent run with goal: %s", goal[:100])
 
         goal_embedding = self.embedder.embed(goal)

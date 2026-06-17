@@ -1,15 +1,5 @@
-"""Mermaid flowchart visualization of a ``CausalGraph``.
-
-Produces a Mermaid-formatted string where:
-- **Green** nodes (``:::safe``) = non-diverged states
-- **Red** nodes (``:::diverged``) = diverged states
-- **Bold** edges = rollback path (if provided)
-"""
-
 from __future__ import annotations
-
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from agents_driftguard.core.graph import CausalGraph
 
@@ -18,32 +8,7 @@ def visualize_graph(
     causal_graph: CausalGraph,
     rollback_path: list[int] | None = None,
 ) -> str:
-    """Export a ``CausalGraph`` as a Mermaid flowchart string.
 
-    Args:
-        causal_graph: The causal graph to visualize.
-        rollback_path: Optional list of step_ids whose connecting edges
-            should be rendered with bold/thick lines.
-
-    Returns:
-        A Mermaid-formatted string that can be pasted into any
-        Mermaid-compatible renderer.
-
-    Example output::
-
-        ```mermaid
-        flowchart TD
-            classDef safe fill:#2d6a4f,stroke:#1b4332,color:#fff
-            classDef diverged fill:#d00000,stroke:#6a040f,color:#fff
-            S0["S0: __start__"]:::safe
-            S1["S1: search"]:::safe
-            S2["S2: compute"]:::safe
-            S3["S3: write_file"]:::diverged
-            S0 --> S1
-            S1 --> S2
-            S2 --> S3
-        ```
-    """
     lines: list[str] = [
         "flowchart TD",
         "    classDef safe fill:#2d6a4f,stroke:#1b4332,color:#fff",
@@ -84,14 +49,6 @@ def visualize_graph(
 
 
 def _escape_mermaid(text: str) -> str:
-    """Escape special characters for Mermaid labels.
-
-    Args:
-        text: Raw text to escape.
-
-    Returns:
-        Mermaid-safe string.
-    """
     # Remove quotes and brackets that break Mermaid syntax
     return (
         text.replace('"', "'")
