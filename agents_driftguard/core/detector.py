@@ -1,40 +1,12 @@
-"""Divergence detection framework.
-
-A pluggable suite of sub-detectors that run after every agent step to
-determine whether the agent has diverged from its goal. Each sub-detector
-inherits ``BaseDetector`` and returns a ``DivergenceSignal``. The
-``DivergenceDetector`` aggregator runs all enabled detectors and merges
-results via a configurable strategy.
-"""
-
 from __future__ import annotations
-
 import re
 from abc import ABC, abstractmethod
 from typing import Any, Callable
-
 from pydantic import BaseModel, Field
-
 from agents_driftguard.core.state import AgentState
 from agents_driftguard.utils.embeddings import cosine_similarity
 
-
-# ---------------------------------------------------------------------------
-# Signal model
-# ---------------------------------------------------------------------------
-
 class DivergenceSignal(BaseModel):
-    """Result of a divergence check.
-
-    Attributes:
-        detected: Whether divergence was detected.
-        confidence: Confidence in the detection (0.0–1.0).
-        reason: Machine-readable reason code.
-        diverged_at: Node ID of the diverged state (e.g. ``"S3"``).
-        recommended_rollback: Suggested node ID to roll back to.
-        details: Human-readable explanation.
-        failed_resource: Optional resource key identified as the cause of failure.
-    """
 
     detected: bool = False
     confidence: float = 0.0
@@ -44,14 +16,7 @@ class DivergenceSignal(BaseModel):
     details: str = ""
     failed_resource: str | None = None
 
-
-# ---------------------------------------------------------------------------
-# Abstract detector
-# ---------------------------------------------------------------------------
-
 class BaseDetector(ABC):
-    """Abstract base class for all divergence sub-detectors."""
-
     @abstractmethod
     def detect(
         self,
@@ -59,30 +24,9 @@ class BaseDetector(ABC):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Run the detector against the current state and history.
-
-        Args:
-            state: The current agent state to check.
-            history: All previous states in order.
-            **kwargs: Additional context (graph, etc.).
-
-        Returns:
-            A ``DivergenceSignal`` describing the result.
-        """
         ...
 
-
-# ---------------------------------------------------------------------------
-# Sub-detectors
-# ---------------------------------------------------------------------------
-
 class GoalDriftDetector(BaseDetector):
-    """Detects when the agent drifts away from its original goal.
-
-    Fires when the cosine similarity between ``goal_embedding`` and
-    ``state_embedding`` drops below a threshold, or decreases by more
-    than ``step_drop_threshold`` in a single step.
-    """
 
     def __init__(
         self,
@@ -98,15 +42,6 @@ class GoalDriftDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check for goal drift via embedding cosine similarity.
-
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"goal_drift"`` if fired.
-        """
         if not state.goal_embedding or not state.state_embedding:
             return DivergenceSignal()
 
@@ -147,12 +82,6 @@ class GoalDriftDetector(BaseDetector):
 
 
 class ToolFailureDetector(BaseDetector):
-    """Detects tool/action failures by scanning the observation string.
-
-    Looks for error keywords, HTTP error codes, empty outputs, and
-    exception patterns.
-    """
-
     ERROR_PATTERNS: list[str] = [
         r"(?i)\b(error|exception|traceback|failed|failure)\b",
         r"(?i)\b(timeout|timed?\s*out)\b",
@@ -168,15 +97,6 @@ class ToolFailureDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Scan the observation for error signals.
-
-        Args:
-            state: Current agent state.
-            history: Previous states (unused by this detector).
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"tool_failure"`` if fired.
-        """
         obs = state.observation.strip()
 
         # Empty observation is suspicious
@@ -216,11 +136,6 @@ class ToolFailureDetector(BaseDetector):
 
 
 class LoopDetector(BaseDetector):
-    """Detects repeated states by comparing state hashes.
-
-    Fires if the current state's hash matches any of the last ``window``
-    states — indicating the agent is stuck in a loop.
-    """
 
     def __init__(self, window: int = 5) -> None:
         self.window = window
@@ -231,15 +146,6 @@ class LoopDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check if the current state hash was seen recently.
-
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"loop_detected"`` if fired.
-        """
         if not history:
             return DivergenceSignal()
 
@@ -260,11 +166,6 @@ class LoopDetector(BaseDetector):
 
 
 class ConstraintChecker(BaseDetector):
-    """Validates user-defined constraints (Python callables).
-
-    Accepts a list of functions ``fn(state) -> bool``. Fires if any
-    constraint returns ``False``.
-    """
 
     def __init__(self, constraints: list[Callable[[AgentState], bool]] | None = None) -> None:
         self.constraints: list[Callable[[AgentState], bool]] = constraints or []
@@ -275,15 +176,6 @@ class ConstraintChecker(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check all user constraints.
-
-        Args:
-            state: Current agent state.
-            history: Previous states (unused).
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"constraint_violation"`` if fired.
-        """
         for i, constraint in enumerate(self.constraints):
             try:
                 if not constraint(state):
@@ -307,15 +199,6 @@ class ConstraintChecker(BaseDetector):
 
 
 class LLMJudge(BaseDetector):
-    """Optional LLM-based alignment judge.
-
-    Calls a user-provided scoring function with the current state context.
-    Fires if the score is below ``threshold``.
-
-    The ``judge_fn`` should be a callable that accepts a prompt string and
-    returns a numeric score (0–10).
-    """
-
     def __init__(
         self,
         judge_fn: Callable[[str], float] | None = None,
@@ -330,15 +213,6 @@ class LLMJudge(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Ask the LLM judge to score goal alignment.
-
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"llm_judge"`` if score < threshold.
-        """
         if self.judge_fn is None:
             return DivergenceSignal()
 
@@ -372,21 +246,7 @@ class LLMJudge(BaseDetector):
 
         return DivergenceSignal()
 
-
-# ---------------------------------------------------------------------------
-# Extended detectors (Phase 2)
-# ---------------------------------------------------------------------------
-
-
 class OutputQualityDetector(BaseDetector):
-    """Detects suspiciously low-quality outputs.
-
-    Fires when an observation is too short or contains excessive repetition.
-
-    Args:
-        min_length: Minimum acceptable observation length (chars).
-        max_repetition_ratio: Maximum ratio of repeated words to total words.
-    """
 
     def __init__(
         self,
@@ -402,15 +262,6 @@ class OutputQualityDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check observation quality.
-
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"output_quality"`` if fired.
-        """
         obs = state.observation.strip()
 
         # Too short
@@ -447,14 +298,6 @@ class OutputQualityDetector(BaseDetector):
 
 
 class TokenBudgetDetector(BaseDetector):
-    """Detects when cumulative token usage exceeds a budget.
-
-    Estimates tokens via whitespace splitting (``len(text.split())``).
-    Useful for cost control in production.
-
-    Args:
-        max_tokens: Maximum allowed cumulative tokens.
-    """
 
     def __init__(self, max_tokens: int = 10000) -> None:
         self.max_tokens = max_tokens
@@ -465,15 +308,6 @@ class TokenBudgetDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check cumulative token budget.
-
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"token_budget"`` if exceeded.
-        """
         total_tokens = 0
         for s in history:
             total_tokens += len(s.observation.split())
@@ -498,15 +332,6 @@ class TokenBudgetDetector(BaseDetector):
 
 
 class HallucinationDetector(BaseDetector):
-    """Detects potential contradictions between observations.
-
-    Fires when the current observation claims something that contradicts
-    a previous observation using keyword heuristics (e.g., "found" vs
-    "not found").
-
-    Args:
-        contradiction_pairs: List of (positive, negative) keyword pairs.
-    """
 
     DEFAULT_PAIRS: list[tuple[str, str]] = [
         ("found", "not found"),
@@ -529,15 +354,7 @@ class HallucinationDetector(BaseDetector):
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Check for contradictions with previous observations.
 
-        Args:
-            state: Current agent state.
-            history: Previous states.
-
-        Returns:
-            ``DivergenceSignal`` with reason ``"hallucination"`` if fired.
-        """
         if not history:
             return DivergenceSignal()
 
@@ -596,11 +413,6 @@ class HallucinationDetector(BaseDetector):
 
         return DivergenceSignal()
 
-
-# ---------------------------------------------------------------------------
-# Aggregator
-# ---------------------------------------------------------------------------
-
 # Mapping of detector name → class for factory construction
 DETECTOR_REGISTRY: dict[str, type[BaseDetector]] = {
     "goal_drift": GoalDriftDetector,
@@ -615,13 +427,6 @@ DETECTOR_REGISTRY: dict[str, type[BaseDetector]] = {
 
 
 class DivergenceDetector:
-    """Aggregator that runs multiple sub-detectors and merges results.
-
-    Supports three aggregation strategies:
-    - ``"any"`` (default): fires if *any* sub-detector fires.
-    - ``"all"``: fires only if *all* sub-detectors fire.
-    - ``"weighted"``: fires if the weighted confidence exceeds 0.5.
-    """
 
     def __init__(
         self,
@@ -637,16 +442,7 @@ class DivergenceDetector:
         history: list[AgentState],
         **kwargs: Any,
     ) -> DivergenceSignal:
-        """Run all sub-detectors and aggregate their signals.
 
-        Args:
-            state: Current agent state.
-            history: Previous states.
-            **kwargs: Passed through to sub-detectors.
-
-        Returns:
-            Merged ``DivergenceSignal``.
-        """
         if not self.detectors:
             return DivergenceSignal()
 
@@ -674,11 +470,7 @@ class DivergenceDetector:
 
     @staticmethod
     def _merge(fired: list[DivergenceSignal], state: AgentState) -> DivergenceSignal:
-        """Merge multiple fired signals into one.
 
-        Takes the highest-confidence signal as the primary, concatenates
-        all reasons and details.
-        """
         best = max(fired, key=lambda s: s.confidence)
         reasons = sorted({s.reason for s in fired if s.reason})
         details = "; ".join(s.details for s in fired if s.details)
