@@ -1,5 +1,3 @@
-"""Zero-dependency HTTP server for the DriftGuard dashboard."""
-
 import json
 import logging
 import os
