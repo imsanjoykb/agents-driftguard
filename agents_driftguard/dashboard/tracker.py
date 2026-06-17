@@ -1,5 +1,3 @@
-"""Run tracker for dashboard telemetry."""
-
 import threading
 import time
 import uuid
@@ -11,7 +9,6 @@ from agents_driftguard.core.graph import CausalGraph
 
 
 class TrackedRun:
-    """Telemetry data for a single agent run."""
 
     def __init__(self, goal: str) -> None:
         self.run_id = str(uuid.uuid4())
@@ -38,7 +35,6 @@ class TrackedRun:
 
 
 class RunTracker:
-    """In-memory telemetry tracker for the dashboard."""
 
     _instance = None
     _lock = threading.Lock()

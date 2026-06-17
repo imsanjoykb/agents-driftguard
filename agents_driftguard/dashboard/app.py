@@ -78,12 +78,6 @@ def run_server(port: int = 8050):
 
 
 def start_dashboard_server(port: int = 8050, background: bool = True) -> threading.Thread | None:
-    """Start the dashboard HTTP server.
-    
-    Args:
-        port: Port to listen on.
-        background: If True, runs in a daemon thread.
-    """
     if background:
         thread = threading.Thread(target=run_server, args=(port,), daemon=True)
         thread.start()

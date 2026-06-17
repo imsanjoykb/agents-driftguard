@@ -1,51 +1,16 @@
-"""LangChain agent executor adapter.
-
-Hooks into LangChain's ``AgentExecutor`` to capture ``intermediate_steps``
-and map them to ``AgentState`` objects for DriftGuard's causal graph.
-
-Requires ``langchain-core`` (optional dependency).
-"""
-
 from __future__ import annotations
-
 import time
 from typing import Any
-
 from agents_driftguard.core.state import AgentState
 from agents_driftguard.integrations.base import BaseExecutorAdapter
 
 
 class LangChainAdapter(BaseExecutorAdapter):
-    """Adapter for LangChain's ``AgentExecutor``.
-
-    Wraps a LangChain agent executor instance and translates its
-    ``intermediate_steps`` format into ``AgentState`` snapshots.
-
-    Args:
-        agent_executor: A LangChain ``AgentExecutor`` instance.
-
-    Example::
-
-        from langchain.agents import AgentExecutor
-        from agents_driftguard.integrations.langchain import LangChainAdapter
-
-        executor = AgentExecutor(agent=..., tools=...)
-        adapter = LangChainAdapter(executor)
-    """
-
     def __init__(self, agent_executor: Any) -> None:
         self._executor = agent_executor
         self._last_result: dict[str, Any] = {}
 
     def step(self, prompt: str) -> dict[str, Any]:
-        """Invoke the LangChain agent and capture results.
-
-        Args:
-            prompt: The user input / prompt string.
-
-        Returns:
-            Dict with ``output``, ``intermediate_steps``, and metadata.
-        """
         try:
             from langchain_core.agents import AgentAction  # type: ignore[import-untyped]
         except ImportError as exc:
@@ -86,21 +51,6 @@ class LangChainAdapter(BaseExecutorAdapter):
         state_embedding: list[float],
         memory: list[dict[str, Any]],
     ) -> AgentState:
-        """Convert LangChain step results into an ``AgentState``.
-
-        If intermediate steps are available, uses the last one.
-        Otherwise falls back to the output.
-
-        Args:
-            raw: Result dict from ``step()``.
-            step_id: Current step index.
-            goal_embedding: Fixed goal embedding.
-            state_embedding: Current context embedding.
-            memory: Conversation history.
-
-        Returns:
-            Populated ``AgentState``.
-        """
         steps = raw.get("intermediate_steps", [])
         if steps:
             last_step = steps[-1]
@@ -123,25 +73,9 @@ class LangChainAdapter(BaseExecutorAdapter):
         )
 
     def is_done(self, raw: dict[str, Any]) -> bool:
-        """Check if the agent has finished.
-
-        Args:
-            raw: Result dict from ``step()``.
-
-        Returns:
-            Always ``True`` for LangChain (executor runs to completion).
-        """
         return raw.get("done", True)
 
     def get_output(self, raw: dict[str, Any]) -> str:
-        """Extract the final output.
-
-        Args:
-            raw: Result dict from ``step()``.
-
-        Returns:
-            The agent's final output string.
-        """
         return raw.get("output", "")
 
     def parse_step(self, raw: dict[str, Any]) -> Any:
