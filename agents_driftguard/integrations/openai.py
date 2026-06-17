@@ -1,45 +1,10 @@
-"""OpenAI function-calling adapter.
-
-Hooks into OpenAI's chat completion API to capture ``tool_calls``
-and tool results per step, mapping them to ``AgentState`` objects.
-
-Requires ``openai`` (optional dependency).
-"""
-
 from __future__ import annotations
-
 import time
 from typing import Any
-
 from agents_driftguard.core.state import AgentState
 from agents_driftguard.integrations.base import BaseExecutorAdapter
 
-
 class OpenAIFunctionCallingAdapter(BaseExecutorAdapter):
-    """Adapter for OpenAI function-calling / tool-use agents.
-
-    Manages a single-step tool-call invocation. The caller is responsible
-    for the outer loop; this adapter captures one round of tool calls.
-
-    Args:
-        client: An ``openai.OpenAI`` client instance.
-        model: Model name (default ``"gpt-4o"``).
-        tools: List of tool definitions in OpenAI format.
-        tool_executor: A callable ``(tool_name, args) -> str`` that executes
-            tool calls and returns the result string.
-
-    Example::
-
-        from openai import OpenAI
-        from agents_driftguard.integrations.openai import OpenAIFunctionCallingAdapter
-
-        client = OpenAI()
-        adapter = OpenAIFunctionCallingAdapter(
-            client=client,
-            tools=[...],
-            tool_executor=my_tool_runner,
-        )
-    """
 
     def __init__(
         self,
@@ -68,14 +33,6 @@ class OpenAIFunctionCallingAdapter(BaseExecutorAdapter):
         return self._client
 
     def step(self, prompt: str) -> dict[str, Any]:
-        """Execute one round of OpenAI chat completion with tool calls.
-
-        Args:
-            prompt: The user message to send.
-
-        Returns:
-            Dict with ``tool_calls``, ``message``, ``done``, and ``output``.
-        """
         client = self._get_client()
         messages = [{"role": "user", "content": prompt}]
 
@@ -135,18 +92,6 @@ class OpenAIFunctionCallingAdapter(BaseExecutorAdapter):
         state_embedding: list[float],
         memory: list[dict[str, Any]],
     ) -> AgentState:
-        """Convert OpenAI step results into an ``AgentState``.
-
-        Args:
-            raw: Result dict from ``step()``.
-            step_id: Current step index.
-            goal_embedding: Fixed goal embedding.
-            state_embedding: Current context embedding.
-            memory: Conversation history.
-
-        Returns:
-            Populated ``AgentState``.
-        """
         tool_calls = raw.get("tool_calls", [])
         if tool_calls:
             # Use the first tool call as the primary action
@@ -180,11 +125,6 @@ class OpenAIFunctionCallingAdapter(BaseExecutorAdapter):
         )
 
     def is_done(self, raw: dict[str, Any]) -> bool:
-        """Check if the model has finished (no more tool calls).
-
-        Args:
-            raw: Result dict from ``step()``.
-        """
         return raw.get("done", False)
 
     def get_output(self, raw: dict[str, Any]) -> str:
