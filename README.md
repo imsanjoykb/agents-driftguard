@@ -9,229 +9,256 @@
     <a href="https://github.com/psf/black"><img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code Style: Black"></a>
   </p>
   <p align="center">
-    <a href="#key-features">Features</a> •
-    <a href="#the-problem-and-solution">The Concept</a> •
     <a href="#installation">Installation</a> •
-    <a href="#quickstart">Quickstart Tutorial</a> •
+    <a href="#quickstart">Quickstart</a> •
     <a href="#how-it-works">How it Works</a> •
-    <a href="#advanced-configurations">Advanced Configurations</a> •
-    <a href="#citations">Research & Citation</a>
+    <a href="#api-reference">API Reference</a> •
+    <a href="#integrations">Integrations</a>
   </p>
 </p>
 
 ---
 
-## What is DriftGuard?
+**DriftGuard** wraps any LLM agent executor with a causal state graph, automatic divergence detection, rollback to the last safe state, and failure-context-aware replanning — so your agents recover from mid-chain errors without full restarts.
 
-**DriftGuard** is a system-level execution wrapper for autonomous Large Language Model (LLM) agents. It acts as a safety layer around any LLM agent executor, continuously monitoring trajectories, detecting mid-chain divergences (such as infinite loops, tool failures, or goal drift), automatically executing database-style **reversion hooks** to restore the physical environment, and replanning agent prompts with full context of what failed.
+## The Problem
 
-Instead of terminating your agent runs or restarting them from scratch when an error occurs, DriftGuard recovers execution mid-chain, saving you tokens, time, and context window space.
+Agents in multi-step tasks make errors mid-chain (tool failures, goal drift, infinite loops) and have no way to recover without a full restart. This wastes tokens, time, and context.
 
----
+## The Solution
 
-## Key Features
-
-* 🔄 **State-Aware Rollbacks**: Snapshots conversational memory, reasoning traces, and resource states at every step.
-* 🛠️ **Reversible Tool Registry**: Register compensating (undo) hooks to reverse physical environment side effects (e.g. deleting files, reverting DB queries) on failure.
-* ⛓️ **Dependency-Aware Rollbacks**: Tracks data dependencies ($R_{in}$, $R_{out}$) to pinpoint the exact ancestor node that introduced a defect and roll back directly to it.
-* 🚨 **Ensemble Divergence Detectors**: Pluggable monitors that evaluate loop patterns, token limits, linguistic contradictions, output quality, and goal similarity.
-* 📊 **Live Telemetry Dashboard**: Launch a local, zero-dependency dashboard server to watch agent runs, branching causal DAGs, and rollbacks in real time.
-* 🔌 **Framework Agnostic**: Includes native adapters for **LangChain** and **OpenAI Function Calling**.
-
----
-
-## The Problem and Solution
-
-### The Problem
-Agents executing multi-step tasks often fail mid-trajectory (e.g., executing a bash command with syntax errors). Existing cognitive self-correction strategies (like Tree of Thoughts or Reflexion) try to solve this by re-prompting the LLM. 
-
-However, in real-world embodied settings, **tool actions mutate the physical environment**. If the agent creates a broken codebase structure or alters a database table, merely backtracking the prompt does not revert the physical environment. The agent remains blocked by its own side-effects.
-
-### The Solution
-DriftGuard introduces system-level causal transactions to agent execution loops:
+`DriftGuard` models an agent run as a causal graph of state transitions:
 
 ```
-S0 ──► S1 ──► S2 ──► S3 (💥 environment error / loop)
-               ▲
-               │ [Rollback: Truncates stores & reverses S3 -> S2 side-effects]
-               │
-               S2 ──► S4 (✅ Success path with failure context injected)
+S0 → S1 → S2 → S3 (💥 error) 
+              ↘ rollback → S2 → S4 (✅ success)
 ```
 
----
+When divergence is detected, the system:
+1. **Identifies** the failure via pluggable detectors
+2. **Rolls back** to the last causally-safe state
+3. **Replans** with failure context injected into the next prompt
+4. **Resumes** — the agent tries a different strategy
 
 ## Installation
-
-Install via pip:
 
 ```bash
 pip install agents-driftguard
 ```
 
-### Optional Backends
-Customize installations based on your backend environment:
+With optional backends:
 
 ```bash
-# To use local sentence-transformer embeddings for Goal Drift detection
+# Local embeddings (sentence-transformers)
 pip install agents-driftguard[embeddings]
 
-# To use OpenAI API embeddings & Function Calling Adapter
+# OpenAI embeddings + function-calling adapter
 pip install agents-driftguard[openai]
 
-# To wrap LangChain Agent Executors
+# LangChain integration
 pip install agents-driftguard[langchain]
 
-# For development (pytest, formatting, linting)
+# Development
 pip install agents-driftguard[dev]
 ```
 
----
-
-## Quickstart Tutorial
-
-This tutorial demonstrates how to wrap a simple agent, register a reversible filesystem tool, and handle errors automatically.
-
-### Step 1: Wrap Your Agent Executor
-Create your agent execution logic (which accepts a prompt and returns a thought/action response) and wrap it with DriftGuard:
+## Quickstart
 
 ```python
-import os
 from agents_driftguard import AgentUndoWrapper
 
-# A mock agent executor
+# Your agent is just a callable: (prompt: str) -> str
 def my_agent(prompt: str) -> str:
-    # If the LLM has received rollback feedback context, it corrects its action
-    if "ROLLBACK" in prompt:
-        return "ACTION: write_file\nOBSERVATION: saved to config.json with correct syntax\nDONE"
-        
-    # Standard linear path that introduces an error
-    return "ACTION: write_file\nOBSERVATION: Error compiling build due to SyntaxError in config.json"
+    # Call your LLM here
+    return llm.generate(prompt)
 
 # Wrap it with DriftGuard
 wrapper = AgentUndoWrapper(
     executor=my_agent,
     max_rollbacks=3,
-    detectors=["tool_failure", "loop"],
-    embedding_backend="dummy"
+    detectors=["goal_drift", "tool_failure", "loop"],
+    embedding_backend="dummy",  # or "sentence-transformers" / "openai"
 )
+
+# Run with automatic rollback protection
+result = wrapper.run(goal="Research and summarize recent AI papers")
+
+print(result.success)             # True/False
+print(result.final_output)        # The agent's final answer
+print(result.rollbacks_performed) # Number of rollbacks that occurred
+print(result.causal_graph_mermaid) # Mermaid diagram of the state graph
 ```
 
-### Step 2: Register Reversible Tool Side-Effects
-Decorate your state-mutating actions with the `@reversible` decorator and register an undo function. DriftGuard will execute the undo hook in reverse chronological order during rollbacks:
+## How it Works
+
+### Execution Loop
+
+```
+┌────────────────────────────────────────────────┐
+│                 AgentUndoWrapper                │
+│                                                │
+│  1. Call executor(prompt)                      │
+│  2. Parse action + observation → AgentState    │
+│  3. Embed current context → state_embedding    │
+│  4. Add to CausalGraph                         │
+│  5. Run DivergenceDetector                     │
+│  6. If divergence detected:                    │
+│     a. Mark node diverged                      │
+│     b. Find safe rollback point                │
+│     c. RollbackController.rollback()           │
+│     d. Replanner.replan() → inject context     │
+│     e. Resume from safe state                  │
+│  7. Repeat until done or max_rollbacks         │
+└────────────────────────────────────────────────┘
+```
+
+### Divergence Detectors
+
+| Detector | What it catches | How |
+|---|---|---|
+| `GoalDriftDetector` | Agent wandering off-task | Cosine similarity between goal and state embeddings |
+| `ToolFailureDetector` | Tool errors and crashes | Regex patterns in observations (errors, tracebacks, HTTP codes) |
+| `LoopDetector` | Infinite loops | State hash deduplication over a sliding window |
+| `ConstraintChecker` | Business rule violations | User-defined Python lambdas |
+| `LLMJudge` | Subtle misalignment | Optional LLM-based scoring |
+| `OutputQualityDetector` | Suspiciously poor outputs | Checking length and word repetition ratio |
+| `TokenBudgetDetector` | Excessive API usage | Whitespace-based token estimation across state history |
+| `HallucinationDetector` | Made-up information | Flagging confident uncertainty or apology patterns |
+
+Detectors are combined with configurable strategies: `"any"` (default), `"all"`, or `"weighted"`.
+
+### Causal Graph
+
+Every agent run produces a causal DAG:
+
+```mermaid
+flowchart TD
+    classDef safe fill:#2d6a4f,stroke:#1b4332,color:#fff
+    classDef diverged fill:#d00000,stroke:#6a040f,color:#fff
+    S0["S0: __start__"]:::safe
+    S1["S1: search"]:::safe
+    S2["S2: compute"]:::safe
+    S3["S3: write_file"]:::diverged
+    S4["S4: output"]:::safe
+    S0 --> S1
+    S1 --> S2
+    S2 --> S3
+    S2 --> S4
+```
+
+#### Dependency-Aware Rollback Traversal
+
+Unlike naive sequential rollback systems, DriftGuard tracks resource inputs and outputs (e.g. specific files, SQL tables, code modules). When a tool failure signal registers a `failed_resource` (for instance, a `SyntaxError` in `utils.py`), DriftGuard:
+1. Performs backwards graph traversal along causal ancestors.
+2. Identifies the exact ancestor step that modified or created the failed resource.
+3. Selects the step *immediately preceding* that ancestor as the target recovery state.
+4. Unwinds the side-effects of all intermediate steps in reverse chronological order using their registered `@reversible` compensating hooks, preserving unrelated execution branches.
+
+### Replanning
+
+After rollback, the agent receives failure context:
+
+```
+=== ROLLBACK CONTEXT ===
+You previously attempted: write_file(path='/protected/path')
+This failed because: A tool call returned an error or unexpected result.
+You have been rolled back to step 2.
+Original goal: Analyze data and produce a summary report
+Actions that led to failure (do NOT repeat this approach):
+  - Step 3: write_file → 'Error: Permission denied'
+Try a different strategy.
+=== END ROLLBACK CONTEXT ===
+```
+
+## API Reference
+
+### `AgentUndoWrapper`
+
+```python
+wrapper = AgentUndoWrapper(
+    executor=my_fn,                    # callable: (str) -> str
+    max_rollbacks=3,                   # max rollback attempts
+    detectors=["goal_drift", "tool_failure", "loop"],
+    goal_drift_threshold=0.75,         # cosine similarity threshold
+    store="memory",                    # "memory" | "sqlite"
+    constraints=[lambda s: ...],       # user-defined validators
+    on_rollback=callback_fn,           # optional rollback hook
+    embedding_backend="dummy",         # "dummy" | "sentence-transformers" | "openai"
+    max_steps=50,                      # safety limit
+    verbose=False,
+)
+
+result = wrapper.run(goal="your task")
+```
+
+### `AgentRunResult`
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | `bool` | Whether the agent completed successfully |
+| `final_output` | `str` | The agent's final answer |
+| `total_steps` | `int` | Total steps executed |
+| `rollbacks_performed` | `int` | Number of rollbacks |
+| `causal_graph_mermaid` | `str` | Mermaid diagram string |
+| `rollback_history` | `list[RollbackResult]` | Detailed rollback logs |
+
+### `@reversible` Decorator
+
+Register undo functions for tools with side-effects:
 
 ```python
 from agents_driftguard import reversible
 
-# Define compensating (undo) logic
-def undo_write(args, observation):
-    path = args.get("path")
-    if os.path.exists(path):
-        os.remove(path)
-        print(f"🔄 Reverted environment: Deleted {path}")
+def undo_write(args, result):
+    os.remove(args["path"])
 
-# Decorate the tool
 @reversible(undo_fn=undo_write, tool_name="write_file")
 def write_file(path: str, content: str) -> str:
     with open(path, "w") as f:
         f.write(content)
-    return f"Saved content to {path}"
+    return f"Written to {path}"
 ```
 
-### Step 3: Run with Automatic Protection
-Execute the wrapper. DriftGuard will trace the execution, detect the compile error in step 1, trigger the `undo_write` function, inject the failure context into the next prompt, and re-run:
+During rollback, `undo_write` is automatically called to reverse the side-effect.
 
-```python
-result = wrapper.run(goal="Create a config.json configuration module")
+## Async Support
 
-print(f"Goal Succeeded: {result.success}")
-print(f"Rollbacks Performed: {result.rollbacks_performed}")
-print(f"Final Answer: {result.final_output}")
-```
-
----
-
-## How it Works
-
-### 1. Execution Wrapper Loop
-During `wrapper.run(goal)`:
-1. DriftGuard initializes the run and embeds the goal.
-2. The Agent Executor is called.
-3. The raw output is parsed into a standard `StepResult`.
-4. An `AgentState` snapshot is saved, and a transition node is added to the `CausalGraph`.
-5. Active `DivergenceDetectors` evaluate the transition.
-6. If divergence is detected:
-   * The node is marked as diverged.
-   * The graph identifies the safest ancestor rollback state.
-   * The `RollbackController` executes registered undo hooks for all intermediate steps in reverse order, restoring the environment.
-   * The `Replanner` injects a summary of the failure path into the prompt context.
-   * Execution resumes from the safe state.
-7. If no divergence is found, execution proceeds normally.
-
-### 2. Pluggable Divergence Detectors
-
-DriftGuard evaluates execution health via a suite of configurable heuristics:
-
-| Detector | Category | Metric / Heuristic |
-|---|---|---|
-| **`GoalDriftDetector`** | Semantic | Cosine similarity between goal and state text embeddings. |
-| **`LoopDetector`** | Sequence | Matches SHA-256 state hashes in a sliding window to stop infinite loops. |
-| **`ToolFailureDetector`** | Regex | Scans tool observations for syntax tracebacks, HTTP codes (4xx/5xx), or exceptions. |
-| **`HallucinationDetector`** | Linguistic | Flags contradictions (e.g. "success" vs "failed") regarding overlapping subjects. |
-| **`TokenBudgetDetector`** | Resource | Tracks token consumption to prevent context-window collapse. |
-| **`OutputQualityDetector`** | Content | Checks for empty outputs or high word repetition ratios. |
-| **`ConstraintChecker`** | Custom | Evaluates custom developer-defined Python check lambdas. |
-| **`LLMJudge`** | AI Eval | Uses an LLM to rate action alignment against the target goal. |
-
----
-
-## Advanced Configurations
-
-### Persistent SQLite State Store
-For production environments, swap the default in-memory state tracker with a persistent SQLite store:
-
-```python
-from agents_driftguard.store.sqlite import SQLiteStateStore
-
-store = SQLiteStateStore(db_path="agent_telemetry.db")
-wrapper = AgentUndoWrapper(executor=my_agent, store=store)
-```
-
-### Async Agent Support
-Natively wrap asynchronous agent execution setups:
+`DriftGuard` natively supports asynchronous agent execution using `AsyncAgentUndoWrapper`.
 
 ```python
 import asyncio
 from agents_driftguard.async_wrapper import AsyncAgentUndoWrapper
 
 async def my_async_agent(prompt: str) -> str:
+    # Await your LLM call here
     return await async_llm.generate(prompt)
 
 async def main():
     wrapper = AsyncAgentUndoWrapper(executor=my_async_agent)
-    result = await wrapper.arun(goal="Run async task")
+    result = await wrapper.arun(goal="Fetch async data")
     print(result.success)
 
 asyncio.run(main())
 ```
 
-### Live Telemetry Dashboard
-Launch the zero-dependency web dashboard to inspect agent trajectories, inspect branching causal DAGs, check rollback timeline logs, and track token consumption metrics:
+## Live Web Dashboard
+
+Launch the zero-dependency, local web dashboard to view telemetry in real-time.
 
 ```python
 from agents_driftguard.dashboard.app import start_dashboard_server
 
-# Start server in the background
+# Start the dashboard in the background
 start_dashboard_server(port=8050)
 
-# Telemetry will now stream to http://localhost:8050 as you run wrapper.run()
+# Then run your agent
+wrapper.run("Do work")
 ```
+Navigate to `http://localhost:8050` in your browser to see your agent's timeline, causal graph visualization, and rollback events as they happen!
 
----
+## Integrations
 
-## Framework Integrations
-
-### LangChain Integration
-Wrap a LangChain `AgentExecutor` using the built-in adapter:
+### LangChain
 
 ```python
 from langchain.agents import AgentExecutor
@@ -246,8 +273,7 @@ wrapper = AgentUndoWrapper(
 )
 ```
 
-### OpenAI Function Calling Integration
-Wrap chat completions leveraging OpenAI tool calls:
+### OpenAI Function Calling
 
 ```python
 from openai import OpenAI
@@ -267,26 +293,81 @@ wrapper = AgentUndoWrapper(
 )
 ```
 
----
+## State Stores
 
-## Citations
+| Store | Backend | Persistence | Use Case |
+|---|---|---|---|
+| `InMemoryStateStore` | Python dict | No | Development, testing |
+| `SQLiteStateStore` | SQLite (stdlib) | Yes | Production, debugging |
+
+```python
+# SQLite store
+wrapper = AgentUndoWrapper(executor=fn, store="sqlite")
+
+# Or bring your own
+from agents_driftguard.store.sqlite import SQLiteStateStore
+store = SQLiteStateStore(db_path="agent_states.db")
+wrapper = AgentUndoWrapper(executor=fn, store=store)
+```
+
+## Development
+
+```bash
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest agents_driftguard/tests/ -v
+
+# Format
+black agents_driftguard/
+
+# Lint
+ruff check agents_driftguard/
+```
+
+## Architecture
+
+```
+agents_driftguard/
+├── __init__.py          # AgentUndoWrapper main API
+├── core/
+│   ├── state.py         # AgentState + StateStore protocol
+│   ├── graph.py         # CausalGraph (NetworkX DAG)
+│   ├── detector.py      # DivergenceDetector + sub-detectors
+│   ├── rollback.py      # RollbackController + @reversible
+│   └── replanner.py     # Failure-context injection
+├── integrations/
+│   ├── base.py          # Abstract adapter interface
+│   ├── langchain.py     # LangChain adapter
+│   └── openai.py        # OpenAI function-calling adapter
+├── store/
+│   ├── memory.py        # In-memory StateStore
+│   └── sqlite.py        # SQLite StateStore
+├── utils/
+│   ├── embeddings.py    # Embedding backends
+│   ├── visualize.py     # Mermaid graph export
+│   └── hashing.py       # Deterministic state hashing
+└── tests/
+    ├── test_state.py
+    ├── test_graph.py
+    ├── test_detector.py
+    ├── test_rollback.py
+    └── test_wrapper.py  # End-to-end mock agent test
+```
+
+## Research Paper & Citation
 
 If you use this framework in your research, please cite our paper:
 
 ```bibtex
 @article{driftguard2026,
   title={DriftGuard: A State-Aware Rollback and Trajectory-Replanning Framework for Autonomous LLM Agents},
-  author={Anonymous Authors},
+  author={Sanjoy Kumar},
   journal={Preprint / Working Paper},
   year={2026}
 }
 ```
-
-The mathematical models, system design block diagrams, and SWE-bench/WebArena evaluation results are documented in:
-* [DriftGuard_Research_Paper_v3.docx](file:///d:/Project/agentundo/paper/DriftGuard_Research_Paper_v3.docx) (Word/DOCX draft)
-* [driftguard_paper.md](file:///d:/Project/agentundo/paper/driftguard_paper.md) (Markdown master copy)
-
----
 
 ## License
 
