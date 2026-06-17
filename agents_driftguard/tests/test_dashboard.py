@@ -68,7 +68,7 @@ def test_dashboard_api(dashboard_server) -> None:
     run_id = tracker.start_run("API Test")
     
     # Test /api/runs
-    req = urllib.request.Request("http://localhost:8055/api/runs")
+    req = urllib.request.Request("http://127.0.0.1:8055/api/runs")
     with urllib.request.urlopen(req) as response:
         assert response.status == 200
         data = json.loads(response.read().decode())
@@ -76,7 +76,7 @@ def test_dashboard_api(dashboard_server) -> None:
         assert any(r["run_id"] == run_id for r in data["runs"])
         
     # Test /api/runs/<id>
-    req = urllib.request.Request(f"http://localhost:8055/api/runs/{run_id}")
+    req = urllib.request.Request(f"http://127.0.0.1:8055/api/runs/{run_id}")
     with urllib.request.urlopen(req) as response:
         assert response.status == 200
         data = json.loads(response.read().decode())
