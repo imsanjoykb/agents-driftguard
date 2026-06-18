@@ -1,9 +1,5 @@
-"""Tests for core/graph.py — CausalGraph."""
-
 from __future__ import annotations
-
 import pytest
-
 from agents_driftguard.core.graph import CausalGraph
 from agents_driftguard.core.state import AgentState
 

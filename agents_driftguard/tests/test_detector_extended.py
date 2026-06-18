@@ -18,8 +18,7 @@ def _make_state(step_id: int, observation: str = "", scratchpad: str = "") -> Ag
         goal_embedding=[],
         state_embedding=[],
     )
-
-
+    
 class TestOutputQualityDetector:
     def test_too_short(self) -> None:
         detector = OutputQualityDetector(min_length=10)

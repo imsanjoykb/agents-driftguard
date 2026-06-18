@@ -1,23 +1,15 @@
-# ---------------------------------------------------------------------------
 # DriftGuard: Core Dependencies
-# ---------------------------------------------------------------------------
 pydantic>=2.0
 numpy>=1.24
 networkx>=3.0
 
-# ---------------------------------------------------------------------------
-# Optional Integrations & Backends
-# Uncomment any of these to install them as needed:
-# ---------------------------------------------------------------------------
 # sentence-transformers>=2.2  # For local sentence-embeddings goal-drift detection
-# openai>=1.0                 # For OpenAI embeddings and API adapters
-# langchain-core>=0.1         # For wrapping LangChain executors
+openai>=1.0                 # For OpenAI embeddings and API adapters
+langchain-core>=0.1         # For wrapping LangChain executors
 
-# ---------------------------------------------------------------------------
 # Development & Testing Dependencies
-# ---------------------------------------------------------------------------
-# pytest>=7.0
-# pytest-asyncio>=0.21
-# black>=23.0
-# ruff>=0.1
-# mypy>=1.0
+pytest>=7.0
+pytest-asyncio>=0.21
+black>=23.0
+ruff>=0.1
+mypy>=1.0

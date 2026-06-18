@@ -3,9 +3,7 @@ import threading
 import time
 import urllib.request
 from unittest.mock import patch
-
 import pytest
-
 from agents_driftguard.dashboard.app import start_dashboard_server
 from agents_driftguard.dashboard.tracker import tracker
 from agents_driftguard.core.state import AgentState
@@ -19,8 +17,6 @@ def dashboard_server():
     thread = start_dashboard_server(port=8055, background=True)
     time.sleep(1)  # Give server time to start
     yield
-    # No clean shutdown implemented, thread will die with test process
-
 
 def test_tracker_lifecycle() -> None:
     # 1. Start run

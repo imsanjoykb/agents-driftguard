@@ -1,8 +1,6 @@
 from typing import Any
-
 from agents_driftguard import AgentUndoWrapper, AgentState
 from agents_driftguard.integrations.langchain import LangChainAdapter
-
 
 def test_langchain_integration_success() -> None:
     class MockAgentExecutor:

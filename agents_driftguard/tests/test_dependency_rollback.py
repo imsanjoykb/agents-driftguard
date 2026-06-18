@@ -1,10 +1,6 @@
-"""Tests for Dependency-Aware Semantic Rollbacks."""
-
 from __future__ import annotations
-
 import pytest
 from typing import Any
-
 from agents_driftguard import AgentUndoWrapper, AgentRunResult
 from agents_driftguard.core.detector import ToolFailureDetector, DivergenceSignal
 from agents_driftguard.core.graph import CausalGraph
@@ -12,7 +8,6 @@ from agents_driftguard.core.state import AgentState
 
 
 def test_detector_failed_resource_extraction() -> None:
-    """Verify ToolFailureDetector extracts files and database tables from observation errors."""
     detector = ToolFailureDetector()
 
     # Create dummy states
@@ -43,7 +38,6 @@ def test_detector_failed_resource_extraction() -> None:
 
 
 def test_graph_dependency_aware_rollback_points() -> None:
-    """Verify CausalGraph finds the correct rollback targets via dependency inputs/outputs."""
     g = CausalGraph()
 
     # Step 0: start
@@ -88,13 +82,11 @@ def test_graph_dependency_aware_rollback_points() -> None:
     g.mark_node_diverged(3)
 
     # 1. Dependency-aware lookup: failed resource 'config.json' was output by S1
-    # We should rollback to the step before S1 (which is step 0)
     target = g.get_safe_rollback_point(3, failed_resource="config.json")
     assert target is not None
     assert target.step_id == 0
 
     # 2. Linear default rollback fallback (if failed_resource is not mentioned/unrelated)
-    # Standard rollback logic goes to S2 (most recent safe ancestor)
     target_linear = g.get_safe_rollback_point(3, failed_resource=None)
     assert target_linear is not None
     assert target_linear.step_id == 2

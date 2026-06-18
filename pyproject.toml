@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agents-driftguard"
-version = "0.1.0"
-description = "Causal rollback and replanning for LLM agents"
+version = "1.1.0"
+description = "A State-Aware Rollback and Trajectory-Replanning Framework for Autonomous LLM Agents"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "agents-driftguard contributors" },
+    { name = "Sanjoy Kumar"},
 ]
 keywords = [
     "agents",
@@ -19,6 +19,13 @@ keywords = [
     "replanning",
     "causal-graph",
     "reliability",
+    "driftguard",
+    "autonomous agents",
+    "trajectory-replanning",
+    "state-aware",
+    "state-tracking",
+    "llm reliability",
+    "orchestration "
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -51,10 +58,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/agents-driftguard/agents-driftguard"
-Documentation = "https://github.com/agents-driftguard/agents-driftguard#readme"
-Repository = "https://github.com/agents-driftguard/agents-driftguard"
-Issues = "https://github.com/agents-driftguard/agents-driftguard/issues"
+Homepage = "https://github.com/imsanjoykb/agents-driftguard"
+Documentation = "https://github.com/imsanjoykb/agents-driftguard#readme"
+Repository = "https://github.com/imsanjoykb/agents-driftguard"
+Issues = "https://github.com/imsanjoykb/agents-driftguard/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["agents_driftguard/tests"]

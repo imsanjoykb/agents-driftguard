@@ -1,9 +1,5 @@
-"""Tests for core/detector.py — all sub-detectors and the aggregator."""
-
 from __future__ import annotations
-
 import pytest
-
 from agents_driftguard.core.detector import (
     ConstraintChecker,
     DivergenceDetector,
@@ -13,7 +9,6 @@ from agents_driftguard.core.detector import (
     ToolFailureDetector,
 )
 from agents_driftguard.core.state import AgentState
-
 
 def _make_state(
     step_id: int,
@@ -182,8 +177,6 @@ class TestConstraintChecker:
 
 
 class TestLLMJudge:
-    """Test the LLMJudge."""
-
     def test_high_score_passes(self) -> None:
         """No divergence when judge scores high."""
         det = LLMJudge(judge_fn=lambda prompt: 8.0, threshold=5.0)
@@ -200,14 +193,12 @@ class TestLLMJudge:
         assert signal.reason == "llm_judge"
 
     def test_no_judge_fn(self) -> None:
-        """No divergence when no judge function is provided."""
         det = LLMJudge()
         state = _make_state(1)
         signal = det.detect(state, [])
         assert not signal.detected
 
     def test_judge_fn_exception(self) -> None:
-        """Fires with low confidence when judge raises."""
         def failing_judge(prompt: str) -> float:
             raise RuntimeError("API down")
 
@@ -219,10 +210,8 @@ class TestLLMJudge:
 
 
 class TestDivergenceDetectorAggregator:
-    """Test the DivergenceDetector aggregator."""
 
     def test_any_strategy(self) -> None:
-        """'any' strategy fires if any sub-detector fires."""
         det = DivergenceDetector(
             detectors=[
                 ToolFailureDetector(),
@@ -236,7 +225,6 @@ class TestDivergenceDetectorAggregator:
         assert signal.detected
 
     def test_all_strategy_not_all_fire(self) -> None:
-        """'all' strategy does not fire if only some detectors fire."""
         det = DivergenceDetector(
             detectors=[
                 ToolFailureDetector(),
@@ -249,14 +237,12 @@ class TestDivergenceDetectorAggregator:
         assert not signal.detected  # Loop didn't fire
 
     def test_no_detectors(self) -> None:
-        """No divergence with empty detector list."""
         det = DivergenceDetector(detectors=[], strategy="any")
         state = _make_state(1)
         signal = det.detect(state, [])
         assert not signal.detected
 
     def test_merged_signal_has_details(self) -> None:
-        """Merged signal combines details from all fired detectors."""
         det = DivergenceDetector(
             detectors=[
                 ToolFailureDetector(),

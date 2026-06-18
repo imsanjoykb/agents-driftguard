@@ -133,9 +133,7 @@ def test_openai_integration_tool_failure() -> None:
             return MockResponse(MockMessage(tool_calls=[
                 MockToolCall("call_1", "search", '{"query": "bad"}')
             ]))
-        
-        # After rollback, it will get the failure context
-        # And hopefully try something else (we simulate that here)
+
         if call_count == 2:
             return MockResponse(MockMessage(tool_calls=[
                 MockToolCall("call_2", "search", '{"query": "good"}')
