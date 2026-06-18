@@ -59,7 +59,7 @@ from agents_driftguard.utils.hashing import compute_state_hash
 
 logger = logging.getLogger("agents_driftguard")
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"
 
 
 # ---------------------------------------------------------------------------
