@@ -11,12 +11,16 @@ __pycache__/
 demo_complex_agent.py
 demo_loop_agent.py
 demo_research_agent.py
+write_paper_v3.py
 write_paper_v2.py
 write_paper.py
 generate_diagram.py
 examples.py
 AgentUndo_Research_Paper_Extended.docx
 test_with_agent.py
+driftguard_paper.md
+
+paper/
 
 # Distribution / packaging
 .Python
