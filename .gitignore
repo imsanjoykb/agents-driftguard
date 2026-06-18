@@ -8,9 +8,6 @@ __pycache__/
 *.docx
 
 # Test Files
-demo_complex_agent.py
-demo_loop_agent.py
-demo_research_agent.py
 write_paper_v3.py
 write_paper_v2.py
 write_paper.py
@@ -20,7 +17,24 @@ AgentUndo_Research_Paper_Extended.docx
 test_with_agent.py
 driftguard_paper.md
 
+token.txt
+
 paper/
+
+
+# Example Files
+demo_api_auth_token_refresh.py 
+demo_dependency_rollback.py 
+demo_kid_cooking_recipe.py 
+demo_kid_school_backpack.py 
+demo_kid_toy_builder.py 
+demo_loop_agent.py 
+demo_realworld_data_pipeline.py 
+demo_realworld_devops_deploy.py 
+demo_research_agent.py 
+examples.py 
+presentation_demo.py 
+test_with_agent.py
 
 # Distribution / packaging
 .Python
